@@ -13,7 +13,6 @@ import {
   Vignette,
 } from '@react-three/postprocessing'
 import { BlendFunction, ToneMappingMode } from 'postprocessing'
-import { Leva, useControls } from 'leva'
 import Hud, { type HudHandle } from './Hud'
 import {
   CanvasErrorBoundary,
@@ -28,7 +27,6 @@ import * as THREE from 'three'
 
 gsap.registerPlugin(ScrollTrigger)
 
-const TONEMAP = { AgX: ToneMappingMode.AGX, 'PBR Neutral': ToneMappingMode.NEUTRAL, ACES: ToneMappingMode.ACES_FILMIC }
 
 // Camera state, mutated by the scroll timeline and read every frame by CameraRig.
 // az = orbit angle around the product, el = elevation, dist = distance,
@@ -396,30 +394,14 @@ function Studio({ finish }: { finish: FinishId }) {
 // chrome/gold speculars (driven past 1.0 by the Lightformer studio) glint. Noise
 // kills banding in the dark gradients; ToneMapping is LAST (maps HDR→display).
 function Effects() {
-  const { tone, bloom, threshold, radius, vignette, grain, contrast, brightness, saturation } =
-    useControls('post', {
-      tone: { value: 'PBR Neutral', options: Object.keys(TONEMAP) },
-      bloom: { value: 0.42, min: 0, max: 2, step: 0.01 },
-      threshold: { value: 1.0, min: 0, max: 1.2, step: 0.01 },
-      radius: { value: 0.7, min: 0, max: 1, step: 0.01 },
-      vignette: { value: 0.78, min: 0, max: 1.5, step: 0.01 },
-      grain: { value: 0.045, min: 0, max: 0.15, step: 0.005 },
-      // Colour grade — the "HDR look": firmer contrast for blacker blacks and
-      // brighter chrome speculars, a touch of brightness lift to keep the body
-      // from crushing, and a small desaturation so the ivory/gold reads as metal
-      // rather than candy. Applied in HDR, BEFORE tone mapping.
-      contrast: { value: 0.07, min: -0.5, max: 0.5, step: 0.01 },
-      brightness: { value: -0.01, min: -0.3, max: 0.3, step: 0.01 },
-      saturation: { value: -0.08, min: -1, max: 1, step: 0.01 },
-    })
   return (
     <EffectComposer multisampling={4}>
-      <Bloom mipmapBlur luminanceThreshold={threshold} intensity={bloom} radius={radius} />
-      <BrightnessContrast brightness={brightness} contrast={contrast} />
-      <HueSaturation saturation={saturation} />
-      <Noise opacity={grain} premultiply blendFunction={BlendFunction.SOFT_LIGHT} />
-      <Vignette offset={0.3} darkness={vignette} />
-      <ToneMapping mode={TONEMAP[tone as keyof typeof TONEMAP]} />
+      <Bloom mipmapBlur luminanceThreshold={1.0} intensity={0.42} radius={0.7} />
+      <BrightnessContrast brightness={-0.01} contrast={0.07} />
+      <HueSaturation saturation={-0.08} />
+      <Noise opacity={0.045} premultiply blendFunction={BlendFunction.SOFT_LIGHT} />
+      <Vignette offset={0.3} darkness={0.78} />
+      <ToneMapping mode={ToneMappingMode.NEUTRAL} />
     </EffectComposer>
   )
 }
@@ -641,8 +623,6 @@ export default function Experience() {
 
   return (
     <div ref={main} className="relative">
-      {/* dev tuning panel — only mounted in development */}
-      {process.env.NODE_ENV === 'development' && <Leva hidden collapsed />}
       <Preloader />
       <Hud ref={hud} onSeek={seek} cartCount={cart.length} onOpenCart={() => setCartOpen((o) => !o)} />
 
