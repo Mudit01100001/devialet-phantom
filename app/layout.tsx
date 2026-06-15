@@ -9,7 +9,7 @@ const italiana = Italiana({
 });
 
 export const metadata: Metadata = {
-  title: "Phantom — a 3D web concept",
+  title: "PHANTOM",
   description:
     "Unofficial Devialet Phantom concept. Modelled in Blender, built with React Three Fiber.",
 };
