@@ -1,26 +1,85 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ── Design tokens ───────────────────────────────────────────── */
+@theme {
+  /* Surfaces — darkness is the canvas */
+  --color-void:           #000000;
+  --color-surface-deep:   #111111;
+  --color-surface-raised: #1a1a1a;
+  --color-surface-card:   #1f1f1f;
+
+  /* Text */
+  --color-white-muted: #999999;
+  /* ghost = the faintest UI labels. #7a7a7a clears WCAG AA (~4.9:1 on #000);
+     the old #555 was ~2.8:1 and failed for the small tracked labels. */
+  --color-white-ghost: #7a7a7a;
+
+  /* Chrome accent — mirrors the physical woofer ring */
+  --color-chrome:        #c8c8c8;
+  --color-chrome-bright: #e8e8e8;
+  --color-chrome-dim:    #6a6a6a;
+
+  /* UI font: system-ui, not Geist */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+/* Wire Italiana from Next.js font system */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-italiana: var(--font-italiana);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* ── Base ────────────────────────────────────────────────────── */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #000;
+  color: #fff;
+  font-family: var(--font-sans);
+  /* The tracked display wordmark is wider than the viewport on small screens;
+     the page scroll is the fixed spacer, so nothing legitimately scrolls sideways. */
+  overflow-x: hidden;
+}
+
+/* ── Scroll cue ──────────────────────────────────────────────── */
+/* Thin vertical rule with a bright segment travelling down it. */
+.scroll-line {
+  position: relative;
+  display: block;
+  width: 1px;
+  height: 64px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+}
+.scroll-line-fill {
+  position: absolute;
+  inset: 0;
+  height: 45%;
+  width: 100%;
+  background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.9), transparent);
+  animation: scroll-travel 2s cubic-bezier(0.5, 0, 0.2, 1) infinite;
+}
+@keyframes scroll-travel {
+  0%   { transform: translateY(-110%); }
+  100% { transform: translateY(240%); }
+}
+
+/* ── HUD sound-toggle equaliser bars ────────────────────────── */
+@keyframes eq {
+  0%, 100% { transform: scaleY(0.4); }
+  50%       { transform: scaleY(1); }
+}
+.eq-bar {
+  animation: eq 1.1s ease-in-out infinite;
+}
+
+/* ── Reduced motion ──────────────────────────────────────────── */
+/* The scroll-scrubbed camera take is the experience and stays, but the ambient,
+   self-looping decorations (scroll cue, equaliser) are paused for users who ask
+   for reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-line-fill {
+    animation: none;
+    transform: translateY(70%);
+  }
+  .eq-bar {
+    animation: none;
+  }
 }

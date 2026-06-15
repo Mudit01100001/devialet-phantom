@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local tooling (Claude Code skills, audit snapshots, agent configs)
+.claude/
+.impeccable/
+.agents/
