@@ -746,6 +746,7 @@ export default function Experience() {
   }, [cartOpen])
 
   return (
+    <>
     <div ref={main} className="relative">
       <Preloader />
       <Hud ref={hud} onSeek={seek} cartCount={cart.length} onOpenCart={() => setCartOpen((o) => !o)} />
@@ -1079,6 +1080,35 @@ export default function Experience() {
           play. Everything visible is fixed; this empty column is the scrollbar. */}
       <div aria-hidden className="h-[860vh]" />
     </div>
+
+      {/* Closing / footer — a SIBLING of `main` so it sits outside the camera
+          ScrollTrigger (main's 860vh drives the take). With a solid bg + higher
+          z than the fixed canvas, it slides up over the product exactly as the
+          acquire beat finishes — the deliberate end of the story. */}
+      <footer className="relative z-20 flex min-h-screen flex-col bg-void">
+        <div className="flex flex-1 flex-col items-center justify-center gap-7 px-6 text-center">
+          <p className="text-[10px] uppercase tracking-[0.42em] text-white-ghost">Devialet — Concept</p>
+          <h2 className={`${display} text-balance text-4xl uppercase leading-[1.05] text-white md:text-6xl`}>
+            Hear it for yourself.
+          </h2>
+          <button
+            onClick={() => seek(0)}
+            aria-label="Back to top"
+            className="mt-3 inline-flex min-h-[44px] cursor-pointer items-center justify-center border border-white/25 px-7 text-[11px] uppercase tracking-[0.2em] text-white transition-colors hover:border-white"
+          >
+            Back to top
+          </button>
+        </div>
+        <div className="flex flex-col items-center gap-2 border-t border-white/10 px-6 py-8 text-center">
+          <p className="text-[10px] uppercase tracking-[0.28em] text-white-muted">
+            Modelled in Blender · Built with React Three Fiber + GSAP
+          </p>
+          <p className="text-[10px] tracking-[0.08em] text-white-ghost">
+            Phantom and Devialet are trademarks of Devialet. An unaffiliated design concept.
+          </p>
+        </div>
+      </footer>
+    </>
   )
 }
 
