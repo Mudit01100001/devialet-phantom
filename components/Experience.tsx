@@ -393,11 +393,12 @@ function Studio({ finish }: { finish: FinishId }) {
 // Cinematic post stack. Bloom is selective via luminanceThreshold≈1, so only the
 // chrome/gold speculars (driven past 1.0 by the Lightformer studio) glint. Noise
 // kills banding in the dark gradients; ToneMapping is LAST (maps HDR→display).
-function Effects() {
+function Effects({ finish }: { finish: FinishId }) {
+  const brightness = finish === 'matte-black' ? -0.01 + 0.08 : -0.01
   return (
     <EffectComposer multisampling={4}>
       <Bloom mipmapBlur luminanceThreshold={1.0} intensity={0.42} radius={0.7} />
-      <BrightnessContrast brightness={-0.01} contrast={0.07} />
+      <BrightnessContrast brightness={brightness} contrast={0.07} />
       <HueSaturation saturation={-0.08} />
       <Noise opacity={0.045} premultiply blendFunction={BlendFunction.SOFT_LIGHT} />
       <Vignette offset={0.3} darkness={0.78} />
@@ -732,7 +733,7 @@ export default function Experience() {
                 </SceneErrorCatcher>
               </Suspense>
               <CameraRig />
-              <Effects />
+              <Effects finish={finish} />
             </Canvas>
           </CanvasErrorBoundary>
         )}
