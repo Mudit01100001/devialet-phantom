@@ -135,11 +135,18 @@ function Phantom({ finish }: { finish: FinishId }) {
   const drag = useRef({ on: false, x: 0, y: 0, rx: 0, ry: 0 })
   useEffect(() => {
     const el = gl.domElement
+    // Horizontal-only turntable: let the browser keep vertical panning (page
+    // scroll) and pinch-zoom, but hand horizontal drags to us instead of
+    // scrolling. Without this, touch devices claim the gesture for scrolling and
+    // cancel the pointer stream, so the speaker can't be rotated on a phone/tablet.
+    const prevTouchAction = el.style.touchAction
+    el.style.touchAction = 'pan-y pinch-zoom'
     const down = (e: PointerEvent) => {
       if (view.stand < 0.5) return
       drag.current.on = true
       drag.current.x = e.clientX
       drag.current.y = e.clientY
+      el.setPointerCapture?.(e.pointerId) // keep the stream if the finger leaves the canvas
     }
     const move = (e: PointerEvent) => {
       const d = drag.current
@@ -155,6 +162,7 @@ function Phantom({ finish }: { finish: FinishId }) {
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
     return () => {
+      el.style.touchAction = prevTouchAction
       el.removeEventListener('pointerdown', down)
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
@@ -469,6 +477,11 @@ export default function Experience() {
   const heroWord = useRef<HTMLHeadingElement>(null) // parallax with cursor
   const hud = useRef<HudHandle>(null)
   const lenisRef = useRef<Lenis | null>(null)
+  // Cart drawer focus management + the reduced-motion flag (set in the main effect,
+  // read by seek()).
+  const cartPanelRef = useRef<HTMLElement>(null)
+  const cartReturnRef = useRef<HTMLElement | null>(null)
+  const reducedRef = useRef(false)
   // Text blocks, one per beat (0 = hero). Animated in/out by the master timeline.
   const beatRefs = useRef<(HTMLDivElement | null)[]>([])
   const setBeat = (i: number) => (el: HTMLDivElement | null) => {
@@ -490,13 +503,28 @@ export default function Experience() {
   // Smooth-scroll to a target progress (used by the brand wordmark + cart).
   const seek = (progress: number) => {
     const max = document.documentElement.scrollHeight - window.innerHeight
-    lenisRef.current?.scrollTo(progress * max, { duration: 1.4 })
+    lenisRef.current?.scrollTo(progress * max, {
+      duration: reducedRef.current ? 0 : 1.4,
+      immediate: reducedRef.current,
+    })
   }
 
   useEffect(() => {
+    // Honour prefers-reduced-motion: drop the smooth-scroll inertia, the text
+    // blur/Z-fly, the cursor parallax and the scrub lag so the page tracks scroll
+    // 1:1 with no autonomous glide. The scroll-driven camera itself stays (it IS
+    // the content) but no longer drifts on its own.
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    reducedRef.current = reduced
+
     // Heavier, weightier scroll: lower lerp = more glide/inertia; wheelMultiplier
     // < 1 stops a fast flick from blasting through the whole page at once.
-    const lenis = new Lenis({ lerp: 0.06, wheelMultiplier: 0.9 })
+    // Reduced motion → lerp 1 + no smooth wheel ≈ native scroll, no inertia.
+    const lenis = new Lenis({
+      lerp: reduced ? 1 : 0.06,
+      wheelMultiplier: reduced ? 1 : 0.9,
+      smoothWheel: !reduced,
+    })
     lenisRef.current = lenis
     lenis.on('scroll', ScrollTrigger.update)
     const raf = (time: number) => lenis.raf(time * 1000)
@@ -511,7 +539,7 @@ export default function Experience() {
       const ny = e.clientY / window.innerHeight - 0.5
       heroWord.current.style.transform = `translate(${-nx * 46}px, ${-ny * 26}px)`
     }
-    window.addEventListener('pointermove', onMove)
+    if (!reduced) window.addEventListener('pointermove', onMove)
 
     // Mobile flag for the camera reframing — a plain matchMedia listener that
     // mutates the module global. No React state, so the timeline never rebuilds.
@@ -551,8 +579,9 @@ export default function Experience() {
     // bottom, stays sharp + interactive). t: 0 = sharp & readable, 1 = gone.
     const READ = 0.05 // half-width of the fully-sharp plateau (covers the HOLD)
     const TRANS = 0.09 // travel/blur distance from plateau edge to fully gone
-    const DEPTH = 520 // px of translateZ at the far end (perspective shrink)
-    const MAXBLUR = 7 // px of blur at the far end
+    // Reduced motion → no blur and no Z-fly; the beat copy simply cross-fades.
+    const DEPTH = reduced ? 0 : 520 // px of translateZ at the far end (perspective shrink)
+    const MAXBLUR = reduced ? 0 : 7 // px of blur at the far end
     const smooth = (x: number) => x * x * (3 - 2 * x)
     const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x)
 
@@ -581,7 +610,7 @@ export default function Experience() {
         trigger: main.current,
         start: 'top top',
         end: 'bottom bottom',
-        scrub: 0.8,
+        scrub: reduced ? true : 0.8,
         onUpdate: (self) => {
           PROGRESS = self.progress
           hud.current?.update(self.progress)
@@ -622,6 +651,48 @@ export default function Experience() {
     }
   }, [])
 
+  // Cart drawer accessibility: while open, trap Tab inside the drawer, close on
+  // Escape, and return focus to whatever opened it. The drawer stays mounted (it
+  // just fades), so `inert` on the closed state keeps its controls out of the tab
+  // order and the a11y tree.
+  useEffect(() => {
+    if (!cartOpen) return
+    cartReturnRef.current = (document.activeElement as HTMLElement) ?? null
+    const panel = cartPanelRef.current
+    const focusables = () =>
+      panel
+        ? Array.from(
+            panel.querySelectorAll<HTMLElement>(
+              'button:not([disabled]), [href], input, [tabindex]:not([tabindex="-1"])',
+            ),
+          )
+        : []
+    focusables()[0]?.focus()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setCartOpen(false)
+        return
+      }
+      if (e.key !== 'Tab') return
+      const f = focusables()
+      if (f.length === 0) return
+      const first = f[0]
+      const last = f[f.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      cartReturnRef.current?.focus?.()
+    }
+  }, [cartOpen])
+
   return (
     <div ref={main} className="relative">
       <Preloader />
@@ -633,9 +704,12 @@ export default function Experience() {
           cartOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
         }`}
         aria-hidden={!cartOpen}
+        inert={!cartOpen}
       >
         <div className="absolute inset-0 bg-black/40" onClick={() => setCartOpen(false)} />
         <aside
+          ref={cartPanelRef}
+          aria-label="Shopping cart"
           className={`absolute right-0 top-0 flex h-full w-[min(24rem,92vw)] flex-col border-l border-white/10 bg-surface-deep transition-transform duration-500 ease-out ${
             cartOpen ? 'translate-x-0' : 'translate-x-full'
           }`}
