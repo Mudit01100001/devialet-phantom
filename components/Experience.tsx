@@ -482,6 +482,9 @@ export default function Experience() {
   const cartPanelRef = useRef<HTMLElement>(null)
   const cartReturnRef = useRef<HTMLElement | null>(null)
   const reducedRef = useRef(false)
+  // Scroll progress (0–1) at which each beat is centred — populated by the timeline
+  // effect, read by the keyboard navigation handler to jump beat-to-beat.
+  const peakRef = useRef<number[]>([])
   // Text blocks, one per beat (0 = hero). Animated in/out by the master timeline.
   const beatRefs = useRef<(HTMLDivElement | null)[]>([])
   const setBeat = (i: number) => (el: HTMLDivElement | null) => {
@@ -571,6 +574,7 @@ export default function Experience() {
     const PEAK = beats.map((_, i) =>
       i === 0 ? 0 : (HERO_HOLD + (i - 1) * beatLen + MOVE + TIN + HOLD / 2) / total
     )
+    peakRef.current = PEAK // expose to the keyboard navigation handler
     const lastIdx = beats.length - 1
 
     // Z-depth reveal (Locomotive-style). Each beat has a sharp "read" plateau
@@ -693,6 +697,54 @@ export default function Experience() {
     }
   }, [cartOpen])
 
+  // Keyboard navigation: ↑/↓, PageUp/PageDown, Home/End and Space jump beat-to-beat
+  // through the scroll-scrubbed take (the audit flagged zero keyboard control). Uses
+  // seek() so it honours reduced motion (instant) vs. the smooth glide otherwise.
+  useEffect(() => {
+    const onKeyNav = (e: KeyboardEvent) => {
+      if (cartOpen) return // the cart owns the keyboard while open
+      const ae = document.activeElement as HTMLElement | null
+      const tag = ae?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || ae?.isContentEditable) return
+      const peaks = peakRef.current
+      if (peaks.length === 0) return
+      const max = document.documentElement.scrollHeight - window.innerHeight
+      const cur = max > 0 ? window.scrollY / max : 0
+      const EPS = 0.004
+      const next = () => peaks.find((p) => p > cur + EPS) ?? peaks[peaks.length - 1]
+      const prev = () => [...peaks].reverse().find((p) => p < cur - EPS) ?? peaks[0]
+      let target: number | null = null
+      switch (e.key) {
+        case 'ArrowDown':
+        case 'PageDown':
+          target = next()
+          break
+        case 'ArrowUp':
+        case 'PageUp':
+          target = prev()
+          break
+        case 'Home':
+          target = peaks[0]
+          break
+        case 'End':
+          target = peaks[peaks.length - 1]
+          break
+        case ' ':
+          // Space activates a focused control — only hijack it for nav otherwise.
+          if (tag === 'BUTTON' || tag === 'A' || tag === 'SUMMARY') return
+          target = e.shiftKey ? prev() : next()
+          break
+        default:
+          return
+      }
+      if (target == null) return
+      e.preventDefault()
+      seek(target)
+    }
+    window.addEventListener('keydown', onKeyNav)
+    return () => window.removeEventListener('keydown', onKeyNav)
+  }, [cartOpen])
+
   return (
     <div ref={main} className="relative">
       <Preloader />
@@ -719,7 +771,7 @@ export default function Experience() {
             <button
               onClick={() => setCartOpen(false)}
               aria-label="Close cart"
-              className="cursor-pointer text-lg leading-none text-white-muted transition-colors hover:text-white"
+              className="-mr-2 flex h-11 w-11 cursor-pointer items-center justify-center text-lg leading-none text-white-muted transition-colors hover:text-white"
             >
               ×
             </button>
@@ -743,7 +795,7 @@ export default function Experience() {
                       <button
                         onClick={() => setCart((c) => c.filter((x) => x.id !== item.id))}
                         aria-label="Remove item"
-                        className="cursor-pointer text-white-ghost transition-colors hover:text-white"
+                        className="-my-2 -mr-2 flex h-11 w-11 cursor-pointer items-center justify-center text-white-ghost transition-colors hover:text-white"
                       >
                         ×
                       </button>
@@ -799,6 +851,24 @@ export default function Experience() {
               // MSAA off — the composer handles AA (multisampling); tone mapping is
               // moved into the composer so the renderer must not also apply it.
               gl={{ alpha: true, antialias: false, stencil: false, toneMapping: THREE.NoToneMapping }}
+              onCreated={({ gl }) => {
+                // A lost GL context (GPU reset, mobile Safari backgrounding, low
+                // memory) otherwise freezes on a dead frame. preventDefault lets the
+                // browser try to restore; if it doesn't come back, surface the
+                // reload poster instead of a stuck image.
+                const canvas = gl.domElement
+                let live = true
+                canvas.addEventListener('webglcontextlost', (e) => {
+                  e.preventDefault()
+                  live = false
+                  setTimeout(() => {
+                    if (!live) setSceneError(true)
+                  }, 1500)
+                })
+                canvas.addEventListener('webglcontextrestored', () => {
+                  live = true
+                })
+              }}
             >
               <Suspense fallback={null}>
                 <SceneErrorCatcher onError={() => setSceneError(true)}>
