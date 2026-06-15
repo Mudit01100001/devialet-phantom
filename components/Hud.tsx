@@ -11,11 +11,10 @@ const Hud = forwardRef<
   HudHandle,
   {
     onSeek: (progress: number) => void
-    onToggleSound?: () => void
     cartCount?: number
     onOpenCart?: () => void
   }
->(function Hud({ onSeek, onToggleSound, cartCount = 0, onOpenCart }, ref) {
+>(function Hud({ onSeek, cartCount = 0, onOpenCart }, ref) {
   const barRef = useRef<HTMLDivElement>(null)
 
   useImperativeHandle(ref, () => ({
@@ -56,22 +55,6 @@ const Hud = forwardRef<
           </span>
         </button>
       </header>
-
-      {/* bottom-left: sound toggle (wired to audio in Phase 8) */}
-      <button
-        onClick={onToggleSound}
-        className="pointer-events-auto fixed z-40 flex min-h-[44px] items-end gap-[3px] bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-[max(1.75rem,env(safe-area-inset-left))]"
-        aria-label="Toggle sound"
-      >
-        {[6, 11, 4, 9, 5].map((h, i) => (
-          <span
-            key={i}
-            className="eq-bar w-[2px] origin-bottom bg-white-ghost"
-            style={{ height: h, animationDelay: `${i * 0.12}s` }}
-          />
-        ))}
-        <span className="ml-2 text-[10px] tracking-[0.28em] text-white-ghost">SOUND</span>
-      </button>
     </>
   )
 })
