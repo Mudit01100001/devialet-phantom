@@ -70,6 +70,32 @@ body {
   animation: eq 1.1s ease-in-out infinite;
 }
 
+/* ── Volume slider (reveals on hover over the sound button) ───── */
+.vol-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.22);
+  accent-color: #ffffff;
+  cursor: pointer;
+}
+.vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 8px;
+  height: 8px;
+  background: #ffffff;
+  border: none;
+  border-radius: 0;
+}
+.vol-slider::-moz-range-thumb {
+  width: 8px;
+  height: 8px;
+  background: #ffffff;
+  border: none;
+  border-radius: 0;
+}
+
 /* ── Reduced motion ──────────────────────────────────────────── */
 /* The scroll-scrubbed camera take is the experience and stays, but the ambient,
    self-looping decorations (scroll cue, equaliser) are paused for users who ask

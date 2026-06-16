@@ -70,12 +70,13 @@ const AUDIO = {
   meter: 0, // |drive| this frame, for the dev level meter
   on: false, // playing AND not muted → woofers follow the music (else synthetic groove)
   reduced: false, // prefers-reduced-motion → damp the reactive amplitude
-  gain: 1.6, // SLIDER — swing AMPLITUDE only; the rest position never moves (0–4)
-  outLimit: 0.3, // SLIDER — max OUTWARD cone travel (scale fraction)
-  inLimit: 0.08, // SLIDER — max INWARD travel; kept small so the cone never recedes into the (non-existent) interior
-  lowHz: 60, // SLIDER — reactive range, low edge
-  highHz: 1200, // SLIDER — reactive range, high edge (raise toward 20k for the whole mix)
-  volume: 0.6, // SLIDER — playback level (1.0 was full blast)
+  // Defaults baked from Mudit's dev-tuner pass (16 Jun 2026).
+  gain: 1.05, // swing AMPLITUDE only; the rest position never moves
+  outLimit: 0.27, // max OUTWARD cone travel (scale fraction)
+  inLimit: 0.05, // max INWARD travel; small so the cone never recedes into the (non-existent) interior
+  lowHz: 60, // reactive range, low edge
+  highHz: 1200, // reactive range, high edge
+  volume: 0.6, // playback level (1.0 was full blast); also the user volume slider's start
 }
 const AUDIO_TRACK = '/phantom-track.m4a'
 const AUDIO_CREDIT = 'Decouverte by Grolok Panicrum'
@@ -165,10 +166,8 @@ function Phantom({ finish }: { finish: FinishId }) {
     const prevTouchAction = el.style.touchAction
     el.style.touchAction = 'pan-y pinch-zoom'
     const down = (e: PointerEvent) => {
-      // Grabbable in the HERO (PROGRESS≈0, the speaker floats — tumble it) and in the
-      // FINISH section (seated turntable). The scripted middle beats stay locked to
-      // the camera choreography.
-      if (view.stand < 0.5 && PROGRESS > 0.06) return
+      // Grabbable everywhere: tumble it (X+Y, springs back) in every beat except the
+      // finish/acquire section, which keeps its seated Y-only turntable that holds.
       drag.current.on = true
       drag.current.x = e.clientX
       drag.current.y = e.clientY
@@ -570,13 +569,12 @@ function EntryGate({
 // drive it; Volume = playback level. The values get baked into AUDIO once chosen;
 // this panel never ships (gated on NODE_ENV). onVolume applies volume to the live
 // gain node (respecting mute).
-function AudioTuner({ onVolume }: { onVolume: (v: number) => void }) {
+function AudioTuner() {
   const [gain, setGain] = useState(AUDIO.gain)
   const [outLimit, setOutLimit] = useState(AUDIO.outLimit)
   const [inLimit, setInLimit] = useState(AUDIO.inLimit)
   const [lowHz, setLowHz] = useState(AUDIO.lowHz)
   const [highHz, setHighHz] = useState(AUDIO.highHz)
-  const [volume, setVolume] = useState(AUDIO.volume)
   const meterRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     let raf = 0
@@ -628,14 +626,6 @@ function AudioTuner({ onVolume }: { onVolume: (v: number) => void }) {
         <input
           type="range" min={100} max={20000} step={100} value={highHz}
           onChange={(e) => { const v = +e.target.value; setHighHz(v); AUDIO.highHz = v }}
-          className="mt-1 w-full"
-        />
-      </label>
-      <label className={row}>
-        Volume · {Math.round(volume * 100)}%
-        <input
-          type="range" min={0} max={1} step={0.02} value={volume}
-          onChange={(e) => { const v = +e.target.value; setVolume(v); AUDIO.volume = v; onVolume(v) }}
           className="mt-1 w-full"
         />
       </label>
@@ -693,6 +683,7 @@ export default function Experience() {
   const [audioErrored, setAudioErrored] = useState(false)
   const [audioOn, setAudioOn] = useState(false)
   const [muted, setMuted] = useState(false)
+  const [volume, setVolume] = useState(AUDIO.volume)
   // Text blocks, one per beat (0 = hero). Animated in/out by the master timeline.
   const beatRefs = useRef<(HTMLDivElement | null)[]>([])
   const setBeat = (i: number) => (el: HTMLDivElement | null) => {
@@ -825,6 +816,16 @@ export default function Experience() {
     void ctx.resume()
     gn.gain.setTargetAtTime(next ? 0 : AUDIO.volume, ctx.currentTime, 0.03)
     AUDIO.on = !next
+  }
+
+  // User-facing volume (the hover slider on the sound button). Stores the value and
+  // ramps the live gain node, unless muted (mute holds the node at 0; unmuting reads
+  // the stored AUDIO.volume).
+  const setVol = (v: number) => {
+    setVolume(v)
+    AUDIO.volume = v
+    const ctx = audioCtxRef.current
+    if (ctx && gainRef.current && !muted) gainRef.current.gain.setTargetAtTime(v, ctx.currentTime, 0.02)
   }
 
   useEffect(() => {
@@ -1067,34 +1068,42 @@ export default function Experience() {
       <EntryGate soundCapable={soundCapable} audioErrored={audioErrored} onEnter={enterExperience} />
       <Hud ref={hud} onSeek={seek} cartCount={cart.length} onOpenCart={() => setCartOpen((o) => !o)} />
 
-      {/* Bottom-left mute toggle — shown only once the soundtrack is actually playing. */}
+      {/* Bottom-left sound control — click the bars to mute; a volume slider slides
+          out on hover or keyboard focus. Shown only once the soundtrack is playing. */}
       {audioOn && (
-        <button
-          onClick={toggleMute}
-          aria-pressed={!muted}
-          aria-label={muted ? 'Unmute soundtrack' : 'Mute soundtrack'}
-          className="pointer-events-auto fixed z-40 flex min-h-[44px] items-end gap-[3px] bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-[max(1.75rem,env(safe-area-inset-left))]"
-        >
-          {[6, 11, 4, 9, 5].map((h, i) => (
-            <span
-              key={i}
-              className={`w-[2px] origin-bottom bg-white-ghost ${muted ? '' : 'eq-bar'}`}
-              style={{ height: h, animationDelay: `${i * 0.12}s`, transform: muted ? 'scaleY(0.3)' : undefined }}
+        <div className="group pointer-events-auto fixed z-40 flex items-end gap-3 bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-[max(1.75rem,env(safe-area-inset-left))]">
+          <button
+            onClick={toggleMute}
+            aria-pressed={!muted}
+            aria-label={muted ? 'Unmute soundtrack' : 'Mute soundtrack'}
+            className="flex min-h-[44px] items-end gap-[3px]"
+          >
+            {[6, 11, 4, 9, 5].map((h, i) => (
+              <span
+                key={i}
+                className={`w-[2px] origin-bottom bg-white-ghost ${muted ? '' : 'eq-bar'}`}
+                style={{ height: h, animationDelay: `${i * 0.12}s`, transform: muted ? 'scaleY(0.3)' : undefined }}
+              />
+            ))}
+            <span className="ml-2 text-[10px] tracking-[0.28em] text-white-ghost">{muted ? 'SOUND OFF' : 'SOUND'}</span>
+          </button>
+          <div className="mb-[5px] flex items-center overflow-hidden opacity-0 [width:0] transition-all duration-300 ease-out group-hover:opacity-100 group-hover:[width:6.5rem] group-focus-within:opacity-100 group-focus-within:[width:6.5rem]">
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.02}
+              value={volume}
+              onChange={(e) => setVol(+e.target.value)}
+              aria-label="Volume"
+              className="vol-slider w-[6.5rem]"
             />
-          ))}
-          <span className="ml-2 text-[10px] tracking-[0.28em] text-white-ghost">{muted ? 'SOUND OFF' : 'SOUND'}</span>
-        </button>
+          </div>
+        </div>
       )}
 
       {/* Dev-only woofer tuner (localhost). Never ships — gated on NODE_ENV. */}
-      {process.env.NODE_ENV !== 'production' && audioOn && (
-        <AudioTuner
-          onVolume={(v) => {
-            const ctx = audioCtxRef.current
-            if (ctx && gainRef.current && !muted) gainRef.current.gain.setTargetAtTime(v, ctx.currentTime, 0.02)
-          }}
-        />
-      )}
+      {process.env.NODE_ENV !== 'production' && audioOn && <AudioTuner />}
 
       {/* Cart drawer — floating panel on the right with the added line items */}
       <div
