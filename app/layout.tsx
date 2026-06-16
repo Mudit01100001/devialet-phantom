@@ -51,8 +51,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${italiana.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-void text-white">
+    // suppressHydrationWarning: third parties (the in-app preview, browser
+    // extensions like Grammarly / Dark Reader) inject data-* attributes onto
+    // <html>/<body> before React hydrates, which would otherwise log a benign
+    // attribute-mismatch warning. It only suppresses these two elements' own
+    // attributes — not the app tree.
+    <html lang="en" suppressHydrationWarning className={`${italiana.variable} h-full antialiased`}>
+      <body suppressHydrationWarning className="min-h-full flex flex-col bg-void text-white">
         {children}
       </body>
     </html>
