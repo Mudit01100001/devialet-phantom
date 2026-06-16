@@ -1460,7 +1460,10 @@ export default function Experience() {
         </div>
         <div className="flex flex-col items-center gap-2 border-t border-white/10 px-6 py-8 text-center">
           <p className="text-[10px] uppercase tracking-[0.28em] text-white-muted">
-            Modelled in Blender · Built with React Three Fiber + GSAP
+            The entire 3D model — built from scratch in Blender by Mudit
+          </p>
+          <p className="text-[10px] uppercase tracking-[0.24em] text-white-ghost">
+            Real-time site in React Three Fiber + GSAP
           </p>
           {audioOn && (
             <p className="text-[10px] uppercase tracking-[0.24em] text-white-ghost">Music · {AUDIO_CREDIT}</p>
