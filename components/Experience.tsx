@@ -71,7 +71,7 @@ const AUDIO = {
   gain: 1.5, // SLIDER 1 — woofer reaction amount (0–3)
   centerHz: 170, // SLIDER 2 — frequency the woofer follows; up = audible punch, not sub-bass
 }
-const AUDIO_TRACK = '/phantom-track.mp3'
+const AUDIO_TRACK = '/phantom-track.m4a'
 const AUDIO_CREDIT = 'Decouverte by Grolok Panicrum'
 const LOOK_Y = 1.5 // vertical centre of the product after normalisation
 const MODEL_RADIUS = 2.2 // world-space half-extent, used to clamp pan so it never clips
@@ -461,18 +461,17 @@ function Effects({ finish }: { finish: FinishId }) {
 
 const display = '[font-family:var(--font-italiana)]'
 
-// Entry gate. While the scene (and, on desktop, the track) loads it doubles as the
-// preloader. On desktop with the track available it offers "Enter with sound" — the
-// click is the gesture that unlocks Web Audio — and a quiet "Enter without sound".
-// Everywhere else (mobile, or no track) it just reveals silently once loaded.
+// Entry gate. While the scene loads it doubles as the preloader. On a desktop-width
+// window it then offers "Enter with sound" — the click is the gesture that unlocks
+// AND starts loading Web Audio (we deliberately do NOT wait for the track to
+// preload: Safari often won't buffer media until playback, which would otherwise
+// hang the gate) — and a quiet "Enter without sound". Mobile/touch reveals silently.
 function EntryGate({
   soundCapable,
-  audioReady,
   audioErrored,
   onEnter,
 }: {
   soundCapable: boolean
-  audioReady: boolean
   audioErrored: boolean
   onEnter: (withSound: boolean) => void
 }) {
@@ -481,7 +480,10 @@ function EntryGate({
   const [entering, setEntering] = useState(false)
   const [gone, setGone] = useState(false)
 
-  const offerChoice = sceneLoaded && soundCapable && audioReady
+  // Offer sound the instant the scene is ready on desktop — do NOT wait for the
+  // track to preload (Safari defers media until playback, which would hang here).
+  // Only a hard load error (404 / unsupported) sends it down the silent path.
+  const offerChoice = sceneLoaded && soundCapable && !audioErrored
   const autoSilent = sceneLoaded && (!soundCapable || audioErrored)
 
   const go = (withSound: boolean) => {
@@ -536,8 +538,6 @@ function EntryGate({
             Enter without sound
           </button>
         </div>
-      ) : soundCapable && !audioErrored ? (
-        <div className="text-[10px] uppercase tracking-[0.4em] text-white-ghost">Preparing sound…</div>
       ) : null}
     </div>
   )
@@ -628,7 +628,6 @@ export default function Experience() {
   const audioElRef = useRef<HTMLAudioElement | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
   const [soundCapable, setSoundCapable] = useState(false)
-  const [audioReady, setAudioReady] = useState(false)
   const [audioErrored, setAudioErrored] = useState(false)
   const [audioOn, setAudioOn] = useState(false)
   const [muted, setMuted] = useState(false)
@@ -674,24 +673,20 @@ export default function Experience() {
     }
   }, [])
 
-  // Preload the track on capable devices so it starts the instant the visitor enters
-  // with sound. A 404 / decode failure flips audioErrored → the gate reveals silently.
+  // Best-effort preload on capable devices so the track can start quickly. We do NOT
+  // block the entry gate on this — Safari often won't buffer media until playback, so
+  // the actual load+play is kicked by the "Enter with sound" gesture in enterExperience.
   useEffect(() => {
     if (!soundCapable) return
     const el = new Audio(AUDIO_TRACK)
     el.loop = true
     el.preload = 'auto'
-    const ready = () => setAudioReady(true)
-    const failed = () => setAudioErrored(true)
-    el.addEventListener('canplaythrough', ready)
-    el.addEventListener('loadeddata', ready)
+    const failed = () => setAudioErrored(true) // 404 / unsupported → reveal silently
     el.addEventListener('error', failed)
     audioElRef.current = el
     el.load()
     return () => {
       el.pause()
-      el.removeEventListener('canplaythrough', ready)
-      el.removeEventListener('loadeddata', ready)
       el.removeEventListener('error', failed)
     }
   }, [soundCapable])
@@ -710,7 +705,7 @@ export default function Experience() {
   // Enter the experience. `withSound` builds the Web Audio graph INSIDE the click
   // gesture (required by autoplay policy) and starts the looping track.
   const enterExperience = (withSound: boolean) => {
-    if (!withSound || !audioElRef.current || audioErrored) return
+    if (!withSound || !audioElRef.current) return
     try {
       const Ctx =
         window.AudioContext ||
@@ -989,12 +984,7 @@ export default function Experience() {
   return (
     <>
     <div ref={main} className="relative">
-      <EntryGate
-        soundCapable={soundCapable}
-        audioReady={audioReady}
-        audioErrored={audioErrored}
-        onEnter={enterExperience}
-      />
+      <EntryGate soundCapable={soundCapable} audioErrored={audioErrored} onEnter={enterExperience} />
       <Hud ref={hud} onSeek={seek} cartCount={cart.length} onOpenCart={() => setCartOpen((o) => !o)} />
 
       {/* Bottom-left mute toggle — shown only once the soundtrack is actually playing. */}
