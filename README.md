@@ -19,11 +19,13 @@
 
 > **Concept piece.** This is an unaffiliated design concept and portfolio demonstration. *Phantom* and *Devialet* are trademarks of Devialet; nothing here is an official product or for sale.
 
+> **The entire 3D model is original work.** Every part of the Phantom was modelled from scratch in Blender by **Mudit** — no purchased, scanned, or downloaded assets — then meshopt-compressed for real-time WebGL.
+
 ---
 
 ## What it is
 
-A single, continuous **scroll-scrubbed camera take** around a real-time 3D model of the Devialet Phantom speaker — modelled in Blender, exported to a compressed `.glb`, and rendered in the browser with React Three Fiber. The whole page reads like one cinematic product film: the camera travels, settles, and holds across seven beats while the speaker reacts to a live soundtrack.
+A single, continuous **scroll-scrubbed camera take** around a real-time 3D model of the Devialet Phantom speaker — hand-modelled from scratch in Blender, exported to a compressed `.glb`, and rendered in the browser with React Three Fiber. The whole page reads like one cinematic product film: the camera travels, settles, and holds across seven beats while the speaker reacts to a live soundtrack.
 
 The goal was **Awwwards-ceiling craft** — a clean, minimal, "the product *is* the page" experience — taken end to end: modelling, compression, real-time rendering, post-processing grade, scroll choreography, audio reactivity, accessibility, and cross-browser resilience.
 
@@ -152,5 +154,5 @@ public/             compressed .glb finishes + soundtrack
 ---
 
 <div align="center">
-<sub>Modelled in Blender · Built with React Three Fiber + GSAP · An unaffiliated design concept.</sub>
+<sub>3D model built from scratch in Blender by Mudit · Site in React Three Fiber + GSAP · An unaffiliated design concept.</sub>
 </div>
