@@ -15,7 +15,7 @@ colors:
   # Text
   white: "#ffffff"
   white-muted: "#999999"
-  white-ghost: "#555555"
+  white-ghost: "#7a7a7a"   # ≈4.9:1 on #000 (WCAG AA); was #555 (~2.8:1) which failed the small tracked labels
 
   # Accent — chrome/iridescence (never decorative; only on interactive elements and metallic UI)
   chrome: "#c8c8c8"

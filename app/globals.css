@@ -38,6 +38,18 @@ body {
   overflow-x: hidden;
 }
 
+/* ── Keyboard focus ──────────────────────────────────────────── */
+/* Controls are custom-styled on a pure-black canvas, where the UA default ring is
+   faint. Give every focusable a clear chrome ring — keyboard-only (:focus-visible),
+   so it never shows on mouse/touch. */
+:focus-visible {
+  outline: 2px solid var(--color-chrome);
+  outline-offset: 2px;
+}
+.vol-slider:focus-visible {
+  outline-offset: 4px;
+}
+
 /* ── Scroll cue ──────────────────────────────────────────────── */
 /* Thin vertical rule with a bright segment travelling down it. */
 .scroll-line {

@@ -1328,6 +1328,7 @@ export default function Experience() {
                 <button
                   key={f.id}
                   onClick={() => setFinish(f.id)}
+                  aria-pressed={finish === f.id}
                   className={`flex min-h-[44px] cursor-pointer items-center gap-2 border px-4 py-3 text-[10px] uppercase tracking-[0.15em] transition-colors ${
                     finish === f.id
                       ? 'border-chrome-bright text-white'
