@@ -1,36 +1,155 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<div align="center">
 
-## Getting Started
+# PHANTOM
 
-First, run the development server:
+### A scroll-driven 3D product film for the Devialet Phantom — built for the web.
+
+**[▶ Live demo →](https://devialet-site.vercel.app)**
+
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React-19-20232a?logo=react&logoColor=61dafb)
+![Three.js](https://img.shields.io/badge/Three.js-r184-000000?logo=threedotjs&logoColor=white)
+![React Three Fiber](https://img.shields.io/badge/React_Three_Fiber-9-black)
+![GSAP](https://img.shields.io/badge/GSAP_ScrollTrigger-3-88ce02?logo=greensock&logoColor=white)
+![Lenis](https://img.shields.io/badge/Lenis-smooth_scroll-111)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38bdf8?logo=tailwindcss&logoColor=white)
+
+</div>
+
+> **Concept piece.** This is an unaffiliated design concept and portfolio demonstration. *Phantom* and *Devialet* are trademarks of Devialet; nothing here is an official product or for sale.
+
+---
+
+## What it is
+
+A single, continuous **scroll-scrubbed camera take** around a real-time 3D model of the Devialet Phantom speaker — modelled in Blender, exported to a compressed `.glb`, and rendered in the browser with React Three Fiber. The whole page reads like one cinematic product film: the camera travels, settles, and holds across seven beats while the speaker reacts to a live soundtrack.
+
+The goal was **Awwwards-ceiling craft** — a clean, minimal, "the product *is* the page" experience — taken end to end: modelling, compression, real-time rendering, post-processing grade, scroll choreography, audio reactivity, accessibility, and cross-browser resilience.
+
+## The experience — seven beats, one take
+
+| # | Beat | What happens |
+|---|------|--------------|
+| 1 | **Hero** | The wordmark sits behind the floating speaker; grab and tumble it. |
+| 2 | **Shape** | *"No straight lines."* — the camera reveals the pressurised form. |
+| 3 | **Power** | *"108 dB."* — the woofers thump hardest here. |
+| 4 | **Detail** | *"Engineered to the millimetre."* — close on the tweeter. |
+| 5 | **Spine** | *"Heat, silenced."* — the machined rear fins. |
+| 6 | **Finish** | Choose Gold / Rose Gold / Matte Black; drag the seated turntable. |
+| 7 | **Acquire** | A buying panel — price, specs, finish, add-to-cart drawer. |
+| — | **Close** | A footer slides up over the product: *"Hear it for yourself."* |
+
+The camera is driven by **GSAP ScrollTrigger** over a **Lenis** smooth-scroll spacer; beat copy reveals deterministically as a pure function of scroll position (no chained tweens), travelling back in Z with a sharp "read" plateau.
+
+## Tech stack & versions
+
+| Layer | Tooling | Version |
+|-------|---------|---------|
+| Framework | **Next.js** (App Router, Turbopack) | `16.2.9` |
+| UI runtime | **React** / React DOM | `19.2.4` |
+| 3D engine | **three.js** | `r0.184` |
+| React renderer | **@react-three/fiber** | `9.6.1` |
+| Helpers | **@react-three/drei** | `10.7.7` |
+| Post-processing | **@react-three/postprocessing** / **postprocessing** | `3.0.4` / `6.39.1` |
+| Scroll animation | **GSAP** ScrollTrigger | `3.15.0` |
+| Smooth scroll | **Lenis** | `1.3.23` |
+| Styling | **Tailwind CSS** | `4` |
+| Language | **TypeScript** | `5` |
+
+**Asset pipeline:** Blender → `.glb` exported per finish → compressed with `@gltf-transform` (WebP textures → meshopt) to **~1.95 MB each**. All three finishes stay mounted and are toggled by visibility so swapping is instant and never blanks the canvas.
+
+**Render grade:** an `EffectComposer` stack — selective **Bloom** (threshold ≈ 1, so only chrome/gold speculars glint) → **BrightnessContrast** → **HueSaturation** → **Noise** (kills dark-gradient banding) → **Vignette** → **ToneMapping** (PBR-neutral, applied last). A Lightformer studio rig lights the scene; lighting is finish-aware so Matte Black never blows out or goes dead.
+
+## What it does — capabilities
+
+- **Real-time 3D, not a video** — orbiting camera, drag-to-rotate, live material swaps, all in WebGL.
+- **Audio-reactive woofers** — an optional soundtrack drives the woofer cones in real time (see below).
+- **Concept commerce** — finish picker, price, spec accordions, and a floating cart drawer.
+- **Deterministic scroll narrative** — the camera and copy are choreographed independently against one scroll timeline.
+- **Cinematic post-processing** — bloom, grade, grain, vignette, and neutral tone-mapping.
+- **Accessible & resilient** — keyboard navigation, reduced-motion path, focus management, and graceful failure on unsupported browsers.
+
+### Audio system
+
+A signature touch for a *speaker* brand. On a desktop-width window an **entry gate** offers **"Enter with sound"** — the click unlocks Web Audio (browsers block autoplay), and the looping track plays through the whole experience. A Web Audio `AnalyserNode` reads the track each frame and drives the woofer cones:
+
+- The cone moves as a **symmetric swing around its true rest position** (the band energy has its slow-moving DC baseline removed, so loudness controls *amplitude*, not offset — it never creeps outward or recedes into the cabinet).
+- A **selectable frequency range** decides what drives it — narrow + low tracks the kick; widen it for the whole mix / the band you actually hear on laptop speakers.
+- A **bottom-left mute toggle** with a **hover-reveal volume slider**; volume sits on a Web Audio gain node *after* the analyser, so the woofer reaction stays independent of listening volume.
+- Mobile and reduced-motion visitors get the experience **silently** by default.
+
+> A localhost-only dev tuner (swing / travel limits / frequency range) was used to dial in the shipped defaults; it never ships to production.
+
+## Engineering log — issues found & fixed
+
+Driven by an internal **`/impeccable` design audit** (which opened at **32/40**, with four P1s). Every gap was closed:
+
+**Resilience & cross-browser**
+- WebGL **feature-detection + context-loss recovery** + an error boundary, with an on-brand fallback poster instead of a silent black screen.
+- **Safari audio gate** — stopped waiting on media preload (Safari defers it), so the gate never hangs; the track is served as `.m4a` (AAC) for universal playback.
+- Suppressed a **hydration warning** caused by third-party `<html>`/`<body>` attribute injection (browser extensions, preview tooling).
+
+**Accessibility**
+- **Reduced-motion path** — drops smooth-scroll inertia, the blur/Z-fly text reveal, cursor parallax, and damps the audio-driven motion.
+- **Keyboard navigation** — `↑/↓`, PageUp/Down, Home/End, Space jump beat-to-beat.
+- **Cart drawer a11y** — Tab focus-trap, Escape to close, focus return, `inert` when closed.
+- **WCAG-AA contrast** and **≥44 px touch targets** throughout.
+
+**Narrative & polish**
+- A **closing payoff footer** that slides up over the product (the experience used to stop dead).
+- A **preloader / entry gate** replacing the cold-black first paint.
+- Brand tab identity: title set to **PHANTOM** with a **P-monogram favicon** (`.svg` + `.png` + multi-size `.ico`).
+- **Open Graph / Twitter cards** + `metadataBase` so shared links show a branded preview, not a blank box.
+
+**Removed anti-patterns**
+- A dead "SOUND" toggle, an AI-slop section dot-nav, and the Leva debug panel — all cut from production.
+
+## Optimised for every viewer
+
+| View | How it adapts |
+|------|---------------|
+| **Desktop** | Full camera pan (speaker travels *opposite* the incoming copy), cursor parallax on the wordmark, mouse drag-to-tumble, and the audio experience. |
+| **Mobile / touch** | Camera reframes for portrait (pulls back, lifts the model into the top); copy anchors to the bottom with safe-area insets; `touch-action: pan-y` lets a horizontal swipe rotate while vertical still scrolls; audio stays silent by default. |
+| **Reduced motion** | Native 1:1 scroll, copy cross-fades (no blur or fly-in), no cursor parallax, damped woofer reaction — the camera take remains because it *is* the content. |
+| **No WebGL / load failure** | Feature-detected up front; a branded poster with a reload action replaces a dead canvas. |
+| **Safari / Firefox** | AAC soundtrack, context-loss recovery, gesture-unlocked audio, and a gate that never waits on preload. |
+| **Shared links** | Open Graph + Twitter `summary_large_image` cards with an absolute-URL image. |
+
+## Run it locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# open http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> The dev audio tuner only appears on `localhost`. To hear the soundtrack, open a desktop-width window and choose **Enter with sound**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build   # production build
+npm run start   # serve the production build
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Project structure
 
-## Learn More
+```
+app/
+  layout.tsx        metadata, fonts, OG/Twitter, favicons
+  page.tsx          mounts the experience
+  globals.css       design tokens + Tailwind theme
+  icon.svg / .png   P-monogram favicons (+ favicon.ico)
+  opengraph-image.png / twitter-image.png
+components/
+  Experience.tsx    the whole take — scene, camera rig, scroll timeline,
+                    audio system, HUD, cart, entry gate, footer
+  Hud.tsx           persistent top chrome (brand, progress, cart)
+  SceneGuard.tsx    WebGL detection, error boundaries, fallback poster
+public/             compressed .glb finishes + soundtrack
+```
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+<div align="center">
+<sub>Modelled in Blender · Built with React Three Fiber + GSAP · An unaffiliated design concept.</sub>
+</div>
