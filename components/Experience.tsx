@@ -1188,7 +1188,7 @@ export default function Experience() {
             so PHANTOM reads as sitting in 3D space behind the product. */}
         <div
           ref={heroWrap}
-          className="pointer-events-none absolute inset-0 flex items-start justify-center pt-[19vh]"
+          className="pointer-events-none absolute inset-0 flex items-start justify-center pt-[11vh]"
         >
           <h1
             ref={heroWord}
@@ -1255,7 +1255,7 @@ export default function Experience() {
       <div className="pointer-events-none fixed inset-0 z-10 [text-shadow:0_2px_24px_rgba(0,0,0,0.5)]">
         {/* Beat 0 — hero tagline + scroll cue */}
         <div ref={setBeat(0)} className="absolute inset-0">
-          <p className="absolute left-1/2 top-[62%] -translate-x-1/2 text-xs uppercase tracking-[0.35em] text-white-muted">
+          <p className="absolute left-1/2 top-[75%] -translate-x-1/2 text-xs uppercase tracking-[0.35em] text-white-muted">
             The loudest. The clearest.
           </p>
           <div className="absolute bottom-10 left-1/2 flex -translate-x-1/2 flex-col items-center gap-3">
