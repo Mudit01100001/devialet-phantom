@@ -78,7 +78,8 @@ const AUDIO = {
   highHz: 1200, // reactive range, high edge
   volume: 0.6, // playback level (1.0 was full blast); also the user volume slider's start
 }
-const AUDIO_TRACK = '/phantom-track.m4a'
+const AUDIO_TRACK_FULL = '/phantom-track.m4a' // full ~2.3 min — higher-end devices
+const AUDIO_TRACK_LOOP = '/phantom-track-loop.m4a' // lighter ~40 s loop — lower-end devices
 const AUDIO_CREDIT = 'Decouverte by Grolok Panicrum'
 const LOOK_Y = 1.5 // vertical centre of the product after normalisation
 const MODEL_RADIUS = 2.2 // world-space half-extent, used to clamp pan so it never clips
@@ -731,7 +732,11 @@ export default function Experience() {
   // the actual load+play is kicked by the "Enter with sound" gesture in enterExperience.
   useEffect(() => {
     if (!soundCapable) return
-    const el = new Audio(AUDIO_TRACK)
+    // Device-tiered: lower-powered machines get the lighter ~40 s loop (≈0.65 MB);
+    // higher-end get the full track (≈2.25 MB). hardwareConcurrency is the most
+    // cross-browser power proxy (Chrome/Safari/Firefox all expose it).
+    const highEnd = (navigator.hardwareConcurrency || 4) >= 8
+    const el = new Audio(highEnd ? AUDIO_TRACK_FULL : AUDIO_TRACK_LOOP)
     el.loop = true
     el.preload = 'auto'
     const failed = () => {

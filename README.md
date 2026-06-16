@@ -77,6 +77,7 @@ A signature touch for a *speaker* brand. On a desktop-width window an **entry ga
 - The cone moves as a **symmetric swing around its true rest position** (the band energy has its slow-moving DC baseline removed, so loudness controls *amplitude*, not offset — it never creeps outward or recedes into the cabinet).
 - A **selectable frequency range** decides what drives it — narrow + low tracks the kick; widen it for the whole mix / the band you actually hear on laptop speakers.
 - A **bottom-left mute toggle** with a **hover-reveal volume slider**; volume sits on a Web Audio gain node *after* the analyser, so the woofer reaction stays independent of listening volume.
+- **Device-tiered loading** — higher-end machines stream the full ~2.3 min track; lower-powered ones get a lighter ~40 s loop (detected via `hardwareConcurrency`), so the audio download scales with the device.
 - Mobile and reduced-motion visitors get the experience **silently** by default.
 
 > A localhost-only dev tuner (swing / travel limits / frequency range) was used to dial in the shipped defaults; it never ships to production.
