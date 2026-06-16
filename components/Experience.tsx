@@ -60,16 +60,20 @@ function groove(t: number) {
 // ── Audio (desktop only) ────────────────────────────────────────────────────
 // Live analysis state, read every frame by the woofer reaction (same render-cheap
 // global pattern as `view`). `analyser` stays null until the visitor enters WITH
-// sound. `gain` and `centerHz` are tuned live by the dev sliders on localhost,
-// then baked in here as the shipped defaults.
+// sound. gain / lowHz / highHz / volume are tuned live by the dev sliders on
+// localhost, then baked in here as the shipped defaults.
 const AUDIO = {
   analyser: null as AnalyserNode | null,
   data: null as Uint8Array<ArrayBuffer> | null,
-  level: 0, // smoothed 0–1 envelope — drives the woofers and the dev meter
+  level: 0, // smoothed SIGNED swing around rest (±) — beats push out, dips pull in
+  baseline: 0, // slow running average of band energy: the DC we subtract from `level`
+  meter: 0, // |drive| this frame, for the dev level meter
   on: false, // playing AND not muted → woofers follow the music (else synthetic groove)
   reduced: false, // prefers-reduced-motion → damp the reactive amplitude
-  gain: 1.5, // SLIDER 1 — woofer reaction amount (0–3)
-  centerHz: 170, // SLIDER 2 — frequency the woofer follows; up = audible punch, not sub-bass
+  gain: 1.6, // SLIDER — swing AMPLITUDE only; the rest position never moves (0–4)
+  lowHz: 60, // SLIDER — reactive range, low edge
+  highHz: 1200, // SLIDER — reactive range, high edge (raise toward 20k for the whole mix)
+  volume: 0.6, // SLIDER — playback level (1.0 was full blast)
 }
 const AUDIO_TRACK = '/phantom-track.m4a'
 const AUDIO_CREDIT = 'Decouverte by Grolok Panicrum'
@@ -220,26 +224,35 @@ function Phantom({ finish }: { finish: FinishId }) {
     let pulseFactor: number
     if (AUDIO.on && AUDIO.analyser && AUDIO.data) {
       AUDIO.analyser.getByteFrequencyData(AUDIO.data)
-      // SLIDER 2: average a ~⅔-octave window of bins around centerHz. Sub-bass
-      // (~40 Hz) is inaudible on laptop speakers, so tuning this up to the audible
-      // punch makes the woofer hit with what the ear actually registers.
+      // RANGE: average every bin across [lowHz, highHz]. Narrow + low → tracks the
+      // kick/bass (punchy, isolated hits); widen toward 20 kHz → tracks the whole
+      // mix / overall loudness (syncs with what you hear on laptop speakers).
       const nyquist = AUDIO.analyser.context.sampleRate / 2
       const bins = AUDIO.data.length
       const toBin = (hz: number) => Math.max(0, Math.min(bins - 1, Math.round((hz / nyquist) * bins)))
-      const lo = toBin(AUDIO.centerHz * 0.7)
-      const hi = toBin(AUDIO.centerHz * 1.5)
+      const lo = toBin(Math.min(AUDIO.lowHz, AUDIO.highHz))
+      const hi = Math.max(lo, toBin(Math.max(AUDIO.lowHz, AUDIO.highHz)))
       let sum = 0
       for (let i = lo; i <= hi; i++) sum += AUDIO.data[i]
       const energy = sum / (hi - lo + 1) / 255 // 0–1
-      // SLIDER 1 (gain) scales it; clamp so a transient can't over-stretch the cone.
-      const inst = Math.min(0.26, energy * AUDIO.gain * (AUDIO.reduced ? 0.4 : 0.12))
-      // Fast attack, slow decay → a musical thump rather than a jitter.
-      AUDIO.level += (inst - AUDIO.level) * (inst > AUDIO.level ? 0.5 : 0.12)
-      drive = AUDIO.level
+      // DC REMOVAL: subtract a slow running average so GAIN amplifies only the
+      // VARIATION, never the floor. Between beats deviation≈0 → the cone rests at its
+      // modelled position; beats push it OUT, dips pull it IN — symmetric, rest fixed.
+      // Seed the baseline on the first frame (it's 0 at start / after a reset) so the
+      // cone doesn't pop outward while a zero baseline converges; then track slowly.
+      AUDIO.baseline = AUDIO.baseline === 0 ? energy : AUDIO.baseline + (energy - AUDIO.baseline) * 0.04
+      const deviation = energy - AUDIO.baseline // signed, centred on 0
+      // Smooth the swing (fast attack, slower release), preserving the sign.
+      AUDIO.level += (deviation - AUDIO.level) * (deviation > AUDIO.level ? 0.5 : 0.15)
+      // GAIN = swing amplitude (peak-to-trough). Because `deviation` is centred, the
+      // rest position is unaffected by gain. Clamp so a transient can't tear the cone.
+      drive = Math.max(-0.3, Math.min(0.3, AUDIO.level * AUDIO.gain * (AUDIO.reduced ? 0.4 : 1) * 0.9))
+      AUDIO.meter = Math.abs(drive)
       pulseFactor = 0.6 + 0.4 * view.pulse // always moving, harder on the power beat
     } else {
       drive = groove(t) * 0.05
       AUDIO.level = drive
+      AUDIO.meter = Math.abs(drive)
       pulseFactor = view.pulse
     }
     const thump = drive * pulseFactor + clickEnv.current * 0.09
@@ -543,38 +556,59 @@ function EntryGate({
   )
 }
 
-// Dev-only (localhost) tuning panel: two sliders to dial in the woofer reaction
-// against the real track, plus a live level meter. The values get baked into AUDIO
-// once chosen; this panel never ships (gated on NODE_ENV).
-function AudioTuner() {
+// Dev-only (localhost) tuning panel: dial in the woofer reaction against the real
+// track. Swing = amplitude (rest stays fixed); Range low/high = which frequencies
+// drive it; Volume = playback level. The values get baked into AUDIO once chosen;
+// this panel never ships (gated on NODE_ENV). onVolume applies volume to the live
+// gain node (respecting mute).
+function AudioTuner({ onVolume }: { onVolume: (v: number) => void }) {
   const [gain, setGain] = useState(AUDIO.gain)
-  const [hz, setHz] = useState(AUDIO.centerHz)
+  const [lowHz, setLowHz] = useState(AUDIO.lowHz)
+  const [highHz, setHighHz] = useState(AUDIO.highHz)
+  const [volume, setVolume] = useState(AUDIO.volume)
   const meterRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     let raf = 0
     const tick = () => {
-      if (meterRef.current) meterRef.current.style.width = `${Math.min(100, AUDIO.level * 400)}%`
+      if (meterRef.current) meterRef.current.style.width = `${Math.min(100, AUDIO.meter * 300)}%`
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
   }, [])
+  const row = 'mt-4 block text-[10px] uppercase tracking-[0.18em] text-white-muted'
   return (
-    <div className="pointer-events-auto fixed right-4 top-20 z-[80] w-64 border border-white/15 bg-black/80 p-4 text-white backdrop-blur-sm">
-      <div className="mb-3 text-[10px] uppercase tracking-[0.28em] text-white-ghost">Audio tuner — dev only</div>
-      <label className="block text-[10px] uppercase tracking-[0.18em] text-white-muted">
-        Woofer gain · {gain.toFixed(2)}
+    <div className="pointer-events-auto fixed right-4 top-20 z-[80] w-64 border border-white/15 bg-black/80 p-4 text-white">
+      <div className="mb-1 text-[10px] uppercase tracking-[0.28em] text-white-ghost">Audio tuner — dev only</div>
+      <label className="mt-3 block text-[10px] uppercase tracking-[0.18em] text-white-muted">
+        Woofer swing · {gain.toFixed(2)}
         <input
-          type="range" min={0} max={3} step={0.05} value={gain}
+          type="range" min={0} max={4} step={0.05} value={gain}
           onChange={(e) => { const v = +e.target.value; setGain(v); AUDIO.gain = v }}
           className="mt-1 w-full"
         />
       </label>
-      <label className="mt-4 block text-[10px] uppercase tracking-[0.18em] text-white-muted">
-        Reactive freq · {hz} Hz
+      <label className={row}>
+        Range low · {lowHz} Hz
         <input
-          type="range" min={30} max={800} step={5} value={hz}
-          onChange={(e) => { const v = +e.target.value; setHz(v); AUDIO.centerHz = v }}
+          type="range" min={20} max={2000} step={10} value={lowHz}
+          onChange={(e) => { const v = +e.target.value; setLowHz(v); AUDIO.lowHz = v }}
+          className="mt-1 w-full"
+        />
+      </label>
+      <label className={row}>
+        Range high · {highHz >= 1000 ? `${(highHz / 1000).toFixed(1)}k` : highHz} Hz
+        <input
+          type="range" min={100} max={20000} step={100} value={highHz}
+          onChange={(e) => { const v = +e.target.value; setHighHz(v); AUDIO.highHz = v }}
+          className="mt-1 w-full"
+        />
+      </label>
+      <label className={row}>
+        Volume · {Math.round(volume * 100)}%
+        <input
+          type="range" min={0} max={1} step={0.02} value={volume}
+          onChange={(e) => { const v = +e.target.value; setVolume(v); AUDIO.volume = v; onVolume(v) }}
           className="mt-1 w-full"
         />
       </label>
@@ -627,6 +661,7 @@ export default function Experience() {
   // Audio (desktop only, gesture-unlocked). Created lazily; null until entered.
   const audioElRef = useRef<HTMLAudioElement | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
+  const gainRef = useRef<GainNode | null>(null)
   const [soundCapable, setSoundCapable] = useState(false)
   const [audioErrored, setAudioErrored] = useState(false)
   const [audioOn, setAudioOn] = useState(false)
@@ -681,7 +716,10 @@ export default function Experience() {
     const el = new Audio(AUDIO_TRACK)
     el.loop = true
     el.preload = 'auto'
-    const failed = () => setAudioErrored(true) // 404 / unsupported → reveal silently
+    const failed = () => {
+      setAudioErrored(true) // 404 / unsupported → reveal silently
+      audioElRef.current = null // don't try to play a broken element
+    }
     el.addEventListener('error', failed)
     audioElRef.current = el
     el.load()
@@ -691,12 +729,16 @@ export default function Experience() {
     }
   }, [soundCapable])
 
-  // Reset the module-level AUDIO state on unmount (it outlives this component).
+  // Reset the module-level AUDIO state on unmount (it outlives this component, so
+  // stale baseline/level would otherwise cause a 1-frame jitter on the next mount).
   useEffect(
     () => () => {
       AUDIO.on = false
       AUDIO.analyser = null
       AUDIO.data = null
+      AUDIO.baseline = 0
+      AUDIO.level = 0
+      AUDIO.meter = 0
       audioCtxRef.current?.close().catch(() => {})
     },
     [],
@@ -705,7 +747,9 @@ export default function Experience() {
   // Enter the experience. `withSound` builds the Web Audio graph INSIDE the click
   // gesture (required by autoplay policy) and starts the looping track.
   const enterExperience = (withSound: boolean) => {
-    if (!withSound || !audioElRef.current) return
+    // AUDIO.analyser set ⇒ the graph is already built; createMediaElementSource throws
+    // if called twice on the same element, so make re-entry a no-op.
+    if (!withSound || !audioElRef.current || AUDIO.analyser) return
     try {
       const Ctx =
         window.AudioContext ||
@@ -714,10 +758,17 @@ export default function Experience() {
       audioCtxRef.current = ctx
       const src = ctx.createMediaElementSource(audioElRef.current)
       const analyser = ctx.createAnalyser()
-      analyser.fftSize = 1024
+      analyser.fftSize = 2048 // finer low-end resolution for the range control
       analyser.smoothingTimeConstant = 0.75
+      const gainNode = ctx.createGain()
+      gainNode.gain.value = muted ? 0 : AUDIO.volume
+      gainRef.current = gainNode
+      // analyser BEFORE the gain node → the woofer reaction reads the full-level
+      // signal and is independent of the listening volume. (It keeps running even when
+      // muted, which is why the woofers are gated on AUDIO.on, not on the gain value.)
       src.connect(analyser)
-      analyser.connect(ctx.destination)
+      analyser.connect(gainNode)
+      gainNode.connect(ctx.destination)
       AUDIO.analyser = analyser
       AUDIO.data = new Uint8Array(analyser.frequencyBinCount)
       void ctx.resume()
@@ -735,16 +786,18 @@ export default function Experience() {
     }
   }
 
-  // Bottom-left mute toggle: silence output AND stop audio-driving the woofers (they
-  // fall back to the synthetic groove), so muted never means "thumping in silence".
+  // Bottom-left mute toggle: ramp the gain node to silence (no click) AND stop
+  // audio-driving the woofers (they fall back to the synthetic groove), so muted
+  // never means "thumping in silence".
   const toggleMute = () => {
-    const el = audioElRef.current
-    if (!el) return
+    const ctx = audioCtxRef.current
+    const gn = gainRef.current
+    if (!ctx || !gn) return
     const next = !muted
     setMuted(next)
-    el.muted = next
+    void ctx.resume()
+    gn.gain.setTargetAtTime(next ? 0 : AUDIO.volume, ctx.currentTime, 0.03)
     AUDIO.on = !next
-    if (!next) void audioCtxRef.current?.resume()
   }
 
   useEffect(() => {
@@ -1007,7 +1060,14 @@ export default function Experience() {
       )}
 
       {/* Dev-only woofer tuner (localhost). Never ships — gated on NODE_ENV. */}
-      {process.env.NODE_ENV !== 'production' && audioOn && <AudioTuner />}
+      {process.env.NODE_ENV !== 'production' && audioOn && (
+        <AudioTuner
+          onVolume={(v) => {
+            const ctx = audioCtxRef.current
+            if (ctx && gainRef.current && !muted) gainRef.current.gain.setTargetAtTime(v, ctx.currentTime, 0.02)
+          }}
+        />
+      )}
 
       {/* Cart drawer — floating panel on the right with the added line items */}
       <div
