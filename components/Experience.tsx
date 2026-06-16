@@ -71,6 +71,8 @@ const AUDIO = {
   on: false, // playing AND not muted → woofers follow the music (else synthetic groove)
   reduced: false, // prefers-reduced-motion → damp the reactive amplitude
   gain: 1.6, // SLIDER — swing AMPLITUDE only; the rest position never moves (0–4)
+  outLimit: 0.3, // SLIDER — max OUTWARD cone travel (scale fraction)
+  inLimit: 0.08, // SLIDER — max INWARD travel; kept small so the cone never recedes into the (non-existent) interior
   lowHz: 60, // SLIDER — reactive range, low edge
   highHz: 1200, // SLIDER — reactive range, high edge (raise toward 20k for the whole mix)
   volume: 0.6, // SLIDER — playback level (1.0 was full blast)
@@ -163,7 +165,10 @@ function Phantom({ finish }: { finish: FinishId }) {
     const prevTouchAction = el.style.touchAction
     el.style.touchAction = 'pan-y pinch-zoom'
     const down = (e: PointerEvent) => {
-      if (view.stand < 0.5) return
+      // Grabbable in the HERO (PROGRESS≈0, the speaker floats — tumble it) and in the
+      // FINISH section (seated turntable). The scripted middle beats stay locked to
+      // the camera choreography.
+      if (view.stand < 0.5 && PROGRESS > 0.06) return
       drag.current.on = true
       drag.current.x = e.clientX
       drag.current.y = e.clientY
@@ -172,9 +177,11 @@ function Phantom({ finish }: { finish: FinishId }) {
     const move = (e: PointerEvent) => {
       const d = drag.current
       if (!d.on) return
-      // Turntable: drag spins the whole assembly around the vertical axis only.
-      // No X tilt — the speaker stays seated on its stand, so the two never part.
+      // Spin around the vertical axis from horizontal drag.
       d.ry += (e.clientX - d.x) * 0.006
+      // X-tilt only OUTSIDE the finish (in finish the speaker stays seated on its
+      // stand). In the hero you can tumble it; clamp so it can't flip over.
+      if (view.stand < 0.5) d.rx = Math.max(-0.6, Math.min(0.6, d.rx + (e.clientY - d.y) * 0.006))
       d.x = e.clientX
       d.y = e.clientY
     }
@@ -245,8 +252,10 @@ function Phantom({ finish }: { finish: FinishId }) {
       // Smooth the swing (fast attack, slower release), preserving the sign.
       AUDIO.level += (deviation - AUDIO.level) * (deviation > AUDIO.level ? 0.5 : 0.15)
       // GAIN = swing amplitude (peak-to-trough). Because `deviation` is centred, the
-      // rest position is unaffected by gain. Clamp so a transient can't tear the cone.
-      drive = Math.max(-0.3, Math.min(0.3, AUDIO.level * AUDIO.gain * (AUDIO.reduced ? 0.4 : 1) * 0.9))
+      // rest position is unaffected by gain. Clamp asymmetrically: outLimit caps the
+      // bulge, inLimit caps how far IN the cone can recede (so it never reveals the
+      // non-existent interior).
+      drive = Math.max(-AUDIO.inLimit, Math.min(AUDIO.outLimit, AUDIO.level * AUDIO.gain * (AUDIO.reduced ? 0.4 : 1) * 0.9))
       AUDIO.meter = Math.abs(drive)
       pulseFactor = 0.6 + 0.4 * view.pulse // always moving, harder on the power beat
     } else {
@@ -563,6 +572,8 @@ function EntryGate({
 // gain node (respecting mute).
 function AudioTuner({ onVolume }: { onVolume: (v: number) => void }) {
   const [gain, setGain] = useState(AUDIO.gain)
+  const [outLimit, setOutLimit] = useState(AUDIO.outLimit)
+  const [inLimit, setInLimit] = useState(AUDIO.inLimit)
   const [lowHz, setLowHz] = useState(AUDIO.lowHz)
   const [highHz, setHighHz] = useState(AUDIO.highHz)
   const [volume, setVolume] = useState(AUDIO.volume)
@@ -585,6 +596,22 @@ function AudioTuner({ onVolume }: { onVolume: (v: number) => void }) {
         <input
           type="range" min={0} max={4} step={0.05} value={gain}
           onChange={(e) => { const v = +e.target.value; setGain(v); AUDIO.gain = v }}
+          className="mt-1 w-full"
+        />
+      </label>
+      <label className={row}>
+        Out limit · {outLimit.toFixed(2)}
+        <input
+          type="range" min={0} max={0.5} step={0.01} value={outLimit}
+          onChange={(e) => { const v = +e.target.value; setOutLimit(v); AUDIO.outLimit = v }}
+          className="mt-1 w-full"
+        />
+      </label>
+      <label className={row}>
+        In limit · {inLimit.toFixed(2)}
+        <input
+          type="range" min={0} max={0.3} step={0.01} value={inLimit}
+          onChange={(e) => { const v = +e.target.value; setInLimit(v); AUDIO.inLimit = v }}
           className="mt-1 w-full"
         />
       </label>
