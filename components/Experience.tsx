@@ -56,6 +56,23 @@ function groove(t: number) {
   const swell = 0.12 + 0.08 * Math.sin(t * 0.7)
   return kick + ghost + swell
 }
+
+// ── Audio (desktop only) ────────────────────────────────────────────────────
+// Live analysis state, read every frame by the woofer reaction (same render-cheap
+// global pattern as `view`). `analyser` stays null until the visitor enters WITH
+// sound. `gain` and `centerHz` are tuned live by the dev sliders on localhost,
+// then baked in here as the shipped defaults.
+const AUDIO = {
+  analyser: null as AnalyserNode | null,
+  data: null as Uint8Array<ArrayBuffer> | null,
+  level: 0, // smoothed 0–1 envelope — drives the woofers and the dev meter
+  on: false, // playing AND not muted → woofers follow the music (else synthetic groove)
+  reduced: false, // prefers-reduced-motion → damp the reactive amplitude
+  gain: 1.5, // SLIDER 1 — woofer reaction amount (0–3)
+  centerHz: 170, // SLIDER 2 — frequency the woofer follows; up = audible punch, not sub-bass
+}
+const AUDIO_TRACK = '/phantom-track.mp3'
+const AUDIO_CREDIT = 'Decouverte by Grolok Panicrum'
 const LOOK_Y = 1.5 // vertical centre of the product after normalisation
 const MODEL_RADIUS = 2.2 // world-space half-extent, used to clamp pan so it never clips
 
@@ -198,7 +215,34 @@ function Phantom({ finish }: { finish: FinishId }) {
     // Groove-driven thump, gated by scroll position via view.pulse,
     // plus the one-shot boom from clicking the speaker in the finish section.
     clickEnv.current *= 0.93
-    const thump = groove(t) * 0.05 * view.pulse + clickEnv.current * 0.09
+    // Woofer drive: the LIVE track when playing, else the synthetic groove.
+    let drive: number
+    let pulseFactor: number
+    if (AUDIO.on && AUDIO.analyser && AUDIO.data) {
+      AUDIO.analyser.getByteFrequencyData(AUDIO.data)
+      // SLIDER 2: average a ~⅔-octave window of bins around centerHz. Sub-bass
+      // (~40 Hz) is inaudible on laptop speakers, so tuning this up to the audible
+      // punch makes the woofer hit with what the ear actually registers.
+      const nyquist = AUDIO.analyser.context.sampleRate / 2
+      const bins = AUDIO.data.length
+      const toBin = (hz: number) => Math.max(0, Math.min(bins - 1, Math.round((hz / nyquist) * bins)))
+      const lo = toBin(AUDIO.centerHz * 0.7)
+      const hi = toBin(AUDIO.centerHz * 1.5)
+      let sum = 0
+      for (let i = lo; i <= hi; i++) sum += AUDIO.data[i]
+      const energy = sum / (hi - lo + 1) / 255 // 0–1
+      // SLIDER 1 (gain) scales it; clamp so a transient can't over-stretch the cone.
+      const inst = Math.min(0.26, energy * AUDIO.gain * (AUDIO.reduced ? 0.4 : 0.12))
+      // Fast attack, slow decay → a musical thump rather than a jitter.
+      AUDIO.level += (inst - AUDIO.level) * (inst > AUDIO.level ? 0.5 : 0.12)
+      drive = AUDIO.level
+      pulseFactor = 0.6 + 0.4 * view.pulse // always moving, harder on the power beat
+    } else {
+      drive = groove(t) * 0.05
+      AUDIO.level = drive
+      pulseFactor = view.pulse
+    }
+    const thump = drive * pulseFactor + clickEnv.current * 0.09
     // Stand rises from below as the timeline drives view.stand 0→1 (eased).
     const rise = THREE.MathUtils.smoothstep(view.stand, 0, 1)
     for (const m of models) {
@@ -417,32 +461,127 @@ function Effects({ finish }: { finish: FinishId }) {
 
 const display = '[font-family:var(--font-italiana)]'
 
-// Full-screen cover shown while the three GLBs load (kills the cold-black open).
-// Reads drei's global loading store, then fades out once everything's in.
-function Preloader() {
+// Entry gate. While the scene (and, on desktop, the track) loads it doubles as the
+// preloader. On desktop with the track available it offers "Enter with sound" — the
+// click is the gesture that unlocks Web Audio — and a quiet "Enter without sound".
+// Everywhere else (mobile, or no track) it just reveals silently once loaded.
+function EntryGate({
+  soundCapable,
+  audioReady,
+  audioErrored,
+  onEnter,
+}: {
+  soundCapable: boolean
+  audioReady: boolean
+  audioErrored: boolean
+  onEnter: (withSound: boolean) => void
+}) {
   const { progress, active } = useProgress()
+  const sceneLoaded = !active && progress >= 100
+  const [entering, setEntering] = useState(false)
   const [gone, setGone] = useState(false)
-  const done = !active && progress >= 100
+
+  const offerChoice = sceneLoaded && soundCapable && audioReady
+  const autoSilent = sceneLoaded && (!soundCapable || audioErrored)
+
+  const go = (withSound: boolean) => {
+    if (entering) return
+    onEnter(withSound)
+    setEntering(true)
+  }
+
+  // Silent auto-reveal (mobile, or no track present) — no gesture, no audio.
   useEffect(() => {
-    if (!done) return
+    if (autoSilent && !entering) go(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSilent])
+
+  // Fade out, then unmount.
+  useEffect(() => {
+    if (!entering) return
     const t = setTimeout(() => setGone(true), 700)
     return () => clearTimeout(t)
-  }, [done])
+  }, [entering])
+
   if (gone) return null
   return (
     <div
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-void transition-opacity duration-700"
-      style={{ opacity: done ? 0 : 1, pointerEvents: done ? 'none' : 'auto' }}
-      aria-hidden={done}
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-10 bg-void px-6 text-center transition-opacity duration-700"
+      style={{ opacity: entering ? 0 : 1, pointerEvents: entering ? 'none' : 'auto' }}
+      aria-hidden={entering}
     >
-      <div className={`${display} text-[14vw] leading-none tracking-[0.16em] text-white/90 md:tracking-[0.3em]`}>PHANTOM</div>
-      <div className="mt-8 h-px w-40 overflow-hidden bg-white/15">
-        <div
-          className="h-full bg-white transition-[width] duration-300 ease-out"
-          style={{ width: `${progress}%` }}
-        />
+      <div className={`${display} text-[14vw] leading-none tracking-[0.16em] text-white/90 md:text-[clamp(3rem,9vw,8rem)] md:tracking-[0.3em]`}>
+        PHANTOM
       </div>
-      <div className="mt-3 text-[10px] tracking-[0.4em] text-white-ghost">{Math.round(progress)}%</div>
+
+      {!sceneLoaded ? (
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-px w-40 overflow-hidden bg-white/15">
+            <div className="h-full bg-white transition-[width] duration-300 ease-out" style={{ width: `${progress}%` }} />
+          </div>
+          <div className="text-[10px] tracking-[0.4em] text-white-ghost">{Math.round(progress)}%</div>
+        </div>
+      ) : offerChoice ? (
+        <div className="flex flex-col items-center gap-5">
+          <button
+            onClick={() => go(true)}
+            className="min-h-[44px] cursor-pointer border border-white/30 px-9 py-3.5 text-[11px] uppercase tracking-[0.28em] text-white transition-colors hover:border-white hover:bg-white hover:text-void"
+          >
+            Enter with sound
+          </button>
+          <button
+            onClick={() => go(false)}
+            className="cursor-pointer text-[10px] uppercase tracking-[0.28em] text-white-ghost transition-colors hover:text-white-muted"
+          >
+            Enter without sound
+          </button>
+        </div>
+      ) : soundCapable && !audioErrored ? (
+        <div className="text-[10px] uppercase tracking-[0.4em] text-white-ghost">Preparing sound…</div>
+      ) : null}
+    </div>
+  )
+}
+
+// Dev-only (localhost) tuning panel: two sliders to dial in the woofer reaction
+// against the real track, plus a live level meter. The values get baked into AUDIO
+// once chosen; this panel never ships (gated on NODE_ENV).
+function AudioTuner() {
+  const [gain, setGain] = useState(AUDIO.gain)
+  const [hz, setHz] = useState(AUDIO.centerHz)
+  const meterRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    let raf = 0
+    const tick = () => {
+      if (meterRef.current) meterRef.current.style.width = `${Math.min(100, AUDIO.level * 400)}%`
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+  return (
+    <div className="pointer-events-auto fixed right-4 top-20 z-[80] w-64 border border-white/15 bg-black/80 p-4 text-white backdrop-blur-sm">
+      <div className="mb-3 text-[10px] uppercase tracking-[0.28em] text-white-ghost">Audio tuner — dev only</div>
+      <label className="block text-[10px] uppercase tracking-[0.18em] text-white-muted">
+        Woofer gain · {gain.toFixed(2)}
+        <input
+          type="range" min={0} max={3} step={0.05} value={gain}
+          onChange={(e) => { const v = +e.target.value; setGain(v); AUDIO.gain = v }}
+          className="mt-1 w-full"
+        />
+      </label>
+      <label className="mt-4 block text-[10px] uppercase tracking-[0.18em] text-white-muted">
+        Reactive freq · {hz} Hz
+        <input
+          type="range" min={30} max={800} step={5} value={hz}
+          onChange={(e) => { const v = +e.target.value; setHz(v); AUDIO.centerHz = v }}
+          className="mt-1 w-full"
+        />
+      </label>
+      <div className="mt-4 h-1 w-full overflow-hidden bg-white/15">
+        <div ref={meterRef} className="h-full bg-white" style={{ width: '0%' }} />
+      </div>
+      <div className="mt-1 text-[9px] tracking-[0.1em] text-white-ghost">live woofer level</div>
     </div>
   )
 }
@@ -485,6 +624,14 @@ export default function Experience() {
   // Scroll progress (0–1) at which each beat is centred — populated by the timeline
   // effect, read by the keyboard navigation handler to jump beat-to-beat.
   const peakRef = useRef<number[]>([])
+  // Audio (desktop only, gesture-unlocked). Created lazily; null until entered.
+  const audioElRef = useRef<HTMLAudioElement | null>(null)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const [soundCapable, setSoundCapable] = useState(false)
+  const [audioReady, setAudioReady] = useState(false)
+  const [audioErrored, setAudioErrored] = useState(false)
+  const [audioOn, setAudioOn] = useState(false)
+  const [muted, setMuted] = useState(false)
   // Text blocks, one per beat (0 = hero). Animated in/out by the master timeline.
   const beatRefs = useRef<(HTMLDivElement | null)[]>([])
   const setBeat = (i: number) => (el: HTMLDivElement | null) => {
@@ -512,6 +659,99 @@ export default function Experience() {
     })
   }
 
+  // Detect a sound-capable device (desktop width + fine pointer); mobile/touch stays
+  // silent. Tracks resize/rotation so the gate offers (or hides) sound correctly.
+  useEffect(() => {
+    const mqW = window.matchMedia('(max-width: 768px)')
+    const mqP = window.matchMedia('(pointer: fine)')
+    const update = () => setSoundCapable(!mqW.matches && mqP.matches)
+    update()
+    mqW.addEventListener('change', update)
+    mqP.addEventListener('change', update)
+    return () => {
+      mqW.removeEventListener('change', update)
+      mqP.removeEventListener('change', update)
+    }
+  }, [])
+
+  // Preload the track on capable devices so it starts the instant the visitor enters
+  // with sound. A 404 / decode failure flips audioErrored → the gate reveals silently.
+  useEffect(() => {
+    if (!soundCapable) return
+    const el = new Audio(AUDIO_TRACK)
+    el.loop = true
+    el.preload = 'auto'
+    const ready = () => setAudioReady(true)
+    const failed = () => setAudioErrored(true)
+    el.addEventListener('canplaythrough', ready)
+    el.addEventListener('loadeddata', ready)
+    el.addEventListener('error', failed)
+    audioElRef.current = el
+    el.load()
+    return () => {
+      el.pause()
+      el.removeEventListener('canplaythrough', ready)
+      el.removeEventListener('loadeddata', ready)
+      el.removeEventListener('error', failed)
+    }
+  }, [soundCapable])
+
+  // Reset the module-level AUDIO state on unmount (it outlives this component).
+  useEffect(
+    () => () => {
+      AUDIO.on = false
+      AUDIO.analyser = null
+      AUDIO.data = null
+      audioCtxRef.current?.close().catch(() => {})
+    },
+    [],
+  )
+
+  // Enter the experience. `withSound` builds the Web Audio graph INSIDE the click
+  // gesture (required by autoplay policy) and starts the looping track.
+  const enterExperience = (withSound: boolean) => {
+    if (!withSound || !audioElRef.current || audioErrored) return
+    try {
+      const Ctx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      const ctx = new Ctx()
+      audioCtxRef.current = ctx
+      const src = ctx.createMediaElementSource(audioElRef.current)
+      const analyser = ctx.createAnalyser()
+      analyser.fftSize = 1024
+      analyser.smoothingTimeConstant = 0.75
+      src.connect(analyser)
+      analyser.connect(ctx.destination)
+      AUDIO.analyser = analyser
+      AUDIO.data = new Uint8Array(analyser.frequencyBinCount)
+      void ctx.resume()
+      audioElRef.current
+        .play()
+        .then(() => {
+          AUDIO.on = true
+          setAudioOn(true)
+        })
+        .catch(() => {
+          /* blocked → stay silent */
+        })
+    } catch {
+      /* no Web Audio → stay silent */
+    }
+  }
+
+  // Bottom-left mute toggle: silence output AND stop audio-driving the woofers (they
+  // fall back to the synthetic groove), so muted never means "thumping in silence".
+  const toggleMute = () => {
+    const el = audioElRef.current
+    if (!el) return
+    const next = !muted
+    setMuted(next)
+    el.muted = next
+    AUDIO.on = !next
+    if (!next) void audioCtxRef.current?.resume()
+  }
+
   useEffect(() => {
     // Honour prefers-reduced-motion: drop the smooth-scroll inertia, the text
     // blur/Z-fly, the cursor parallax and the scrub lag so the page tracks scroll
@@ -519,6 +759,7 @@ export default function Experience() {
     // the content) but no longer drifts on its own.
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     reducedRef.current = reduced
+    AUDIO.reduced = reduced
 
     // Heavier, weightier scroll: lower lerp = more glide/inertia; wheelMultiplier
     // < 1 stops a fast flick from blasting through the whole page at once.
@@ -748,8 +989,35 @@ export default function Experience() {
   return (
     <>
     <div ref={main} className="relative">
-      <Preloader />
+      <EntryGate
+        soundCapable={soundCapable}
+        audioReady={audioReady}
+        audioErrored={audioErrored}
+        onEnter={enterExperience}
+      />
       <Hud ref={hud} onSeek={seek} cartCount={cart.length} onOpenCart={() => setCartOpen((o) => !o)} />
+
+      {/* Bottom-left mute toggle — shown only once the soundtrack is actually playing. */}
+      {audioOn && (
+        <button
+          onClick={toggleMute}
+          aria-pressed={!muted}
+          aria-label={muted ? 'Unmute soundtrack' : 'Mute soundtrack'}
+          className="pointer-events-auto fixed z-40 flex min-h-[44px] items-end gap-[3px] bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-[max(1.75rem,env(safe-area-inset-left))]"
+        >
+          {[6, 11, 4, 9, 5].map((h, i) => (
+            <span
+              key={i}
+              className={`w-[2px] origin-bottom bg-white-ghost ${muted ? '' : 'eq-bar'}`}
+              style={{ height: h, animationDelay: `${i * 0.12}s`, transform: muted ? 'scaleY(0.3)' : undefined }}
+            />
+          ))}
+          <span className="ml-2 text-[10px] tracking-[0.28em] text-white-ghost">{muted ? 'SOUND OFF' : 'SOUND'}</span>
+        </button>
+      )}
+
+      {/* Dev-only woofer tuner (localhost). Never ships — gated on NODE_ENV. */}
+      {process.env.NODE_ENV !== 'production' && audioOn && <AudioTuner />}
 
       {/* Cart drawer — floating panel on the right with the added line items */}
       <div
@@ -1103,6 +1371,9 @@ export default function Experience() {
           <p className="text-[10px] uppercase tracking-[0.28em] text-white-muted">
             Modelled in Blender · Built with React Three Fiber + GSAP
           </p>
+          {audioOn && (
+            <p className="text-[10px] uppercase tracking-[0.24em] text-white-ghost">Music · {AUDIO_CREDIT}</p>
+          )}
           <p className="text-[10px] tracking-[0.08em] text-white-ghost">
             Phantom and Devialet are trademarks of Devialet. An unaffiliated design concept.
           </p>
