@@ -586,12 +586,13 @@ export function SiteFooter({
 }
 
 // ── CHAT (concept) ───────────────────────────────────────────────────────────
-// Mock concierge popup, bottom-right. Any message gets the same canned reply (the
+// Mock concierge popup, bottom-right. There is NO persistent launcher — it only
+// appears when a "Chat with us" trigger fires the 'phantom:open-chat' window event,
+// so it never competes with the hero. Any message gets the same canned reply (the
 // sales rep is on vacation). Nothing is sent or stored — messages live in local
-// state and vanish on reload. Also opens on a 'phantom:open-chat' window event so
-// the "Chat with us" links can raise it.
+// state and vanish on reload.
 type ChatMsg = { from: 'bot' | 'you'; text: string }
-const CHAT_REPLY = 'Our sales reps are on vacation right now. Please come back later 🙂'
+const CHAT_REPLY = 'Our sales reps are on vacation right now. Please come back later 😁'
 
 export function ChatWidget() {
   const [open, setOpen] = useState(false)
@@ -622,10 +623,12 @@ export function ChatWidget() {
     window.setTimeout(() => setMsgs((m) => [...m, { from: 'bot', text: CHAT_REPLY }]), 650)
   }
 
+  // No persistent launcher: render nothing until a trigger opens it.
+  if (!open) return null
+
   return (
-    <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
-      {open && (
-        <div className="pointer-events-auto flex h-[26rem] w-[min(20rem,calc(100vw-3rem))] flex-col overflow-hidden rounded-[var(--radius)] border border-white/12 bg-surface-raised text-white shadow-[0_16px_50px_-12px_rgba(0,0,0,0.7)]">
+    <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex justify-end">
+      <div className="pointer-events-auto flex h-[26rem] w-[min(20rem,calc(100vw-3rem))] flex-col overflow-hidden rounded-[var(--radius)] border border-white/12 bg-surface-raised text-white shadow-[0_16px_50px_-12px_rgba(0,0,0,0.7)]">
           {/* header */}
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
             <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-white">
@@ -675,20 +678,6 @@ export function ChatWidget() {
             </button>
           </form>
         </div>
-      )}
-
-      {/* launcher */}
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-label={open ? 'Close chat' : 'Chat with us'}
-        aria-expanded={open}
-        className="pointer-events-auto flex min-h-[44px] items-center gap-2 rounded-[var(--radius)] border border-white/15 bg-surface-raised px-4 text-[11px] uppercase tracking-[0.2em] text-white transition-colors hover:border-white/40"
-      >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M4 5h16v11H9l-4 3v-3H4z" />
-        </svg>
-        {open ? 'Close' : 'Chat'}
-      </button>
     </div>
   )
 }
