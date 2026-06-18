@@ -206,11 +206,19 @@ function Phantom({ finish }: { finish: FinishId }) {
     el.addEventListener('pointerdown', down)
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
+    // Mobile: when the browser claims the gesture for scrolling (pan-y) it fires
+    // pointercancel / drops the capture INSTEAD of pointerup. Without these the drag
+    // stays "on" forever, so the spring-back decay never runs and the speaker freezes
+    // at the last orientation until the finish section. Treat both as a release.
+    window.addEventListener('pointercancel', up)
+    el.addEventListener('lostpointercapture', up)
     return () => {
       el.style.touchAction = prevTouchAction
       el.removeEventListener('pointerdown', down)
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+      el.removeEventListener('lostpointercapture', up)
     }
   }, [gl])
 
