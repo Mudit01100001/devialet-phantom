@@ -110,7 +110,7 @@ const FINISH_URL: Record<FinishId, string> = {
 const FINISH_META: { id: FinishId; label: string; dot: string }[] = [
   { id: 'gold', label: 'Gold', dot: '#e8e8e6' },
   { id: 'rosegold', label: 'Rose Gold', dot: '#d8a48c' },
-  { id: 'matte-black', label: 'Matte Black', dot: '#1c1c1e' },
+  { id: 'matte-black', label: 'Black', dot: '#1c1c1e' },
 ]
 
 // One finish's prepared scene: normalised on the body, with stand + woofer nodes
@@ -168,6 +168,9 @@ function Phantom({ finish }: { finish: FinishId }) {
   const hover = useRef(0)
   const hoverTarget = useRef(0)
   const clickEnv = useRef(0)
+  // Idle "grab me" hint: a soft periodic sway in the hero / finish / acquire views so
+  // the speaker reads as draggable. Decays to nothing once the user first drags.
+  const dragHint = useRef(1)
 
   // Drag-to-rotate, active only inside the finish section.
   const drag = useRef({ on: false, x: 0, y: 0, rx: 0, ry: 0 })
@@ -182,6 +185,7 @@ function Phantom({ finish }: { finish: FinishId }) {
     const down = (e: PointerEvent) => {
       // Grabbable everywhere: tumble it (X+Y, springs back) in every beat except the
       // finish/acquire section, which keeps its seated Y-only turntable that holds.
+      dragHint.current = 0 // user found the drag — retire the "grab me" sway
       drag.current.on = true
       drag.current.x = e.clientX
       drag.current.y = e.clientY
@@ -221,18 +225,26 @@ function Phantom({ finish }: { finish: FinishId }) {
       d.ry *= 0.94
     }
     hover.current += (hoverTarget.current - hover.current) * 0.08
+    // Drag-discovery hint: a gentle there-and-back sway every ~4s, only in the views
+    // where grabbing matters (hero / finish picker / acquire), fading after first drag.
+    const inHintZone =
+      !AUDIO.reduced && (PROGRESS < 0.08 || view.stand > 0.5 || view.acquire > 0.5)
+    const hc = t % 4
+    const hintEnv = hc < 1.2 ? Math.sin((hc / 1.2) * Math.PI) : 0 // 0→1→0 envelope over 1.2s
+    const hint =
+      dragHint.current * (inHintZone ? 1 : 0) * 0.07 * hintEnv * Math.sin((hc / 1.2) * Math.PI * 2)
     if (group.current) {
       const drift = Math.sin(t * 0.15) * 0.05 // micro-drift so it never feels frozen
       if (inFinish) {
         // Turntable: speaker + stand rotate together as one rigid unit and hold.
         // X eases to 0 so the speaker sits level on its stand — no tilt, no snap.
-        group.current.rotation.y += (d.ry - group.current.rotation.y) * 0.12
+        group.current.rotation.y += (d.ry + hint - group.current.rotation.y) * 0.12
         group.current.rotation.x += (0 - group.current.rotation.x) * 0.12
       } else {
         // While hovered, the speaker leans toward the cursor.
         const leanY = pointer.x * 0.16 * hover.current
         const leanX = -pointer.y * 0.1 * hover.current
-        group.current.rotation.y += (drift + d.ry + leanY - group.current.rotation.y) * 0.12
+        group.current.rotation.y += (drift + d.ry + leanY + hint - group.current.rotation.y) * 0.12
         group.current.rotation.x += (d.rx + leanX - group.current.rotation.x) * 0.12
       }
     }
@@ -749,6 +761,10 @@ export default function Experience() {
   const [audioOn, setAudioOn] = useState(false)
   const [muted, setMuted] = useState(false)
   const [volume, setVolume] = useState(AUDIO.volume)
+  // Volume slider reveal: state-driven (pointer enter/leave) rather than pure CSS
+  // :hover, which intermittently missed because the collapsed slider gave the group
+  // a hairline hit area. A padded hover zone + state makes it open every time.
+  const [volOpen, setVolOpen] = useState(false)
   // Text blocks, one per beat (0 = hero). Animated in/out by the master timeline.
   const beatRefs = useRef<(HTMLDivElement | null)[]>([])
   const setBeat = (i: number) => (el: HTMLDivElement | null) => {
@@ -1183,7 +1199,11 @@ export default function Experience() {
       {/* Bottom-left sound control — click the bars to mute; a volume slider slides
           out on hover or keyboard focus. Shown only once the soundtrack is playing. */}
       {audioOn && (
-        <div className="group pointer-events-auto fixed z-40 flex items-end gap-3 bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-[max(1.75rem,env(safe-area-inset-left))]">
+        <div
+          onPointerEnter={() => setVolOpen(true)}
+          onPointerLeave={() => setVolOpen(false)}
+          className="group pointer-events-auto fixed z-40 flex items-end gap-3 pt-5 pr-8 bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-[max(1.75rem,env(safe-area-inset-left))]"
+        >
           <button
             onClick={toggleMute}
             aria-pressed={!muted}
@@ -1199,7 +1219,7 @@ export default function Experience() {
             ))}
             <span className={`ml-2 text-[10px] tracking-[0.28em] ${overLight ? 'text-ink-ghost' : 'text-white-ghost'}`}>{muted ? 'SOUND OFF' : 'SOUND'}</span>
           </button>
-          <div className="mb-[5px] flex items-center overflow-hidden opacity-0 [width:0] transition-all duration-300 ease-out group-hover:opacity-100 group-hover:[width:6.5rem] group-focus-within:opacity-100 group-focus-within:[width:6.5rem]">
+          <div className={`mb-[5px] flex items-center overflow-hidden transition-all duration-300 ease-out group-focus-within:opacity-100 group-focus-within:[width:6.5rem] ${volOpen ? 'opacity-100 [width:6.5rem]' : 'opacity-0 [width:0]'}`}>
             <input
               type="range"
               min={0}

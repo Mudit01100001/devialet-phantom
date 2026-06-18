@@ -333,7 +333,7 @@ function LineIcon({ name, className = 'h-6 w-6' }: { name: string; className?: s
 // section. Bento of surface-raised tiles, icon over label + note.
 const ASSURANCES = [
   { icon: 'delivery', label: 'Free delivery', note: 'Insured, to your door' },
-  { icon: 'returns', label: '14-day returns', note: 'Change your mind' },
+  { icon: 'returns', label: '14-day returns', note: 'Change your mind?' },
   { icon: 'secure', label: 'Secure checkout', note: 'Encrypted payment' },
   { icon: 'warranty', label: '2-year warranty', note: 'Parts and labour' },
 ]
@@ -364,7 +364,7 @@ export function Assurances() {
 // card. "For professionals" leads; the room line is the sub. CTAs inert.
 export function Professionals() {
   return (
-    <section className="relative z-20 bg-void px-6 py-20 md:px-[8vw] md:py-28">
+    <section className="relative z-20 bg-void px-6 pb-16 md:px-[8vw] md:pb-20">
       <div className="mx-auto grid max-w-6xl gap-4 md:grid-cols-3 md:gap-5">
         {/* headline card */}
         <div className="flex min-h-[17rem] flex-col justify-between rounded-[var(--radius)] bg-paper p-9 text-ink md:col-span-2 md:p-12">
@@ -417,7 +417,7 @@ export function Newsletter() {
     if (valid) setDone(true)
   }
   return (
-    <section className="relative z-20 bg-void px-6 py-20 md:px-[8vw] md:py-28">
+    <section className="relative z-20 bg-void px-6 pb-16 md:px-[8vw] md:pb-20">
       <div className="mx-auto max-w-6xl">
         {/* outer rectangle — moon image slot (lighter tone) */}
         <div className="relative flex min-h-[24rem] items-center justify-center overflow-hidden rounded-[var(--radius)] bg-surface-raised px-6 py-10 md:px-14 md:py-16">
