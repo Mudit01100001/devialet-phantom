@@ -16,7 +16,7 @@
 // `--radius` token (tuned live by the dev RadiusTuner). Concept links do nothing
 // (rendered as plain buttons) so they never throw you around the page.
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 const display = '[font-family:var(--font-italiana)]'
 
@@ -411,10 +411,17 @@ export function Professionals() {
 export function Newsletter() {
   const [email, setEmail] = useState('')
   const [done, setDone] = useState(false)
+  const [error, setError] = useState(false)
+  // Format check only (no backend, nothing stored) — enough to reject random text.
   const valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (valid) setDone(true)
+    if (!valid) {
+      setError(true)
+      return
+    }
+    setError(false)
+    setDone(true)
   }
   return (
     <section className="relative z-20 bg-void px-6 pb-16 md:px-[8vw] md:pb-20">
@@ -454,15 +461,26 @@ export function Newsletter() {
                     <input
                       type="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value)
+                        if (error) setError(false)
+                      }}
                       placeholder="Email"
                       aria-label="Email address"
-                      className="w-full rounded-[var(--radius)] border border-black/15 bg-white px-4 py-3 text-sm font-light text-ink placeholder:text-ink-ghost focus:border-ink focus:outline-none"
+                      aria-invalid={error}
+                      aria-describedby={error ? 'newsletter-error' : undefined}
+                      className={`w-full rounded-[var(--radius)] border bg-white px-4 py-3 text-sm font-light text-ink placeholder:text-ink-ghost focus:outline-none ${
+                        error ? 'border-red-500 focus:border-red-500' : 'border-black/15 focus:border-ink'
+                      }`}
                     />
+                    {error && (
+                      <p id="newsletter-error" className="text-[11px] font-light tracking-[0.04em] text-red-600">
+                        Please enter a valid email address.
+                      </p>
+                    )}
                     <button
                       type="submit"
-                      disabled={!valid}
-                      className="min-h-[44px] w-full cursor-pointer rounded-[var(--radius)] bg-ink px-7 py-3 text-[11px] uppercase tracking-[0.2em] text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-30"
+                      className="min-h-[44px] w-full cursor-pointer rounded-[var(--radius)] bg-ink px-7 py-3 text-[11px] uppercase tracking-[0.2em] text-paper transition-opacity hover:opacity-80"
                     >
                       Subscribe
                     </button>
@@ -479,9 +497,13 @@ export function Newsletter() {
             Contact our advisors
             <span className="ml-3 text-white-ghost">Mon to Fri, 9am to 11.45am | 7pm to 10pm (EDT)</span>
           </p>
-          <GhostLink className="self-start text-[11px] uppercase tracking-[0.2em] text-white-ghost transition-colors hover:text-white-muted md:self-auto">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event('phantom:open-chat'))}
+            className="cursor-pointer self-start text-[11px] uppercase tracking-[0.2em] text-white-ghost transition-colors hover:text-white-muted md:self-auto"
+          >
             Chat with us
-          </GhostLink>
+          </button>
         </div>
       </div>
     </section>
@@ -560,5 +582,113 @@ export function SiteFooter({
         </div>
       </div>
     </footer>
+  )
+}
+
+// ── CHAT (concept) ───────────────────────────────────────────────────────────
+// Mock concierge popup, bottom-right. Any message gets the same canned reply (the
+// sales rep is on vacation). Nothing is sent or stored — messages live in local
+// state and vanish on reload. Also opens on a 'phantom:open-chat' window event so
+// the "Chat with us" links can raise it.
+type ChatMsg = { from: 'bot' | 'you'; text: string }
+const CHAT_REPLY = 'Our sales reps are on vacation right now. Please come back later 🙂'
+
+export function ChatWidget() {
+  const [open, setOpen] = useState(false)
+  const [msgs, setMsgs] = useState<ChatMsg[]>([
+    { from: 'bot', text: 'Hi, you have reached Devialet. How can we help?' },
+  ])
+  const [text, setText] = useState('')
+  const listRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const openIt = () => setOpen(true)
+    window.addEventListener('phantom:open-chat', openIt)
+    return () => window.removeEventListener('phantom:open-chat', openIt)
+  }, [])
+
+  // Keep the newest message in view.
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight })
+  }, [msgs, open])
+
+  const send = (e: React.FormEvent) => {
+    e.preventDefault()
+    const t = text.trim()
+    if (!t) return
+    setText('')
+    setMsgs((m) => [...m, { from: 'you', text: t }])
+    // Canned reply after a short beat so it reads like a response. Stores nothing.
+    window.setTimeout(() => setMsgs((m) => [...m, { from: 'bot', text: CHAT_REPLY }]), 650)
+  }
+
+  return (
+    <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+      {open && (
+        <div className="pointer-events-auto flex h-[26rem] w-[min(20rem,calc(100vw-3rem))] flex-col overflow-hidden rounded-[var(--radius)] border border-white/12 bg-surface-raised text-white shadow-[0_16px_50px_-12px_rgba(0,0,0,0.7)]">
+          {/* header */}
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+            <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-white">
+              <span className="h-1.5 w-1.5 bg-white/70" aria-hidden /> Devialet · Concierge
+            </span>
+            <button
+              onClick={() => setOpen(false)}
+              aria-label="Close chat"
+              className="cursor-pointer text-white-ghost transition-colors hover:text-white"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                <path d="M2 2l10 10M12 2L2 12" />
+              </svg>
+            </button>
+          </div>
+          {/* messages */}
+          <div ref={listRef} className="flex-1 space-y-2.5 overflow-y-auto px-4 py-4">
+            {msgs.map((m, i) => (
+              <div key={i} className={m.from === 'you' ? 'flex justify-end' : 'flex justify-start'}>
+                <span
+                  className={`max-w-[80%] rounded-[var(--radius)] px-3 py-2 text-[12.5px] font-light leading-relaxed ${
+                    m.from === 'you' ? 'bg-white text-ink' : 'bg-white/[0.08] text-white-muted'
+                  }`}
+                >
+                  {m.text}
+                </span>
+              </div>
+            ))}
+          </div>
+          {/* input */}
+          <form onSubmit={send} className="flex items-center gap-2 border-t border-white/10 p-3">
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Write a message"
+              aria-label="Message"
+              className="min-w-0 flex-1 rounded-[var(--radius)] border border-white/15 bg-transparent px-3 py-2 text-[12.5px] font-light text-white placeholder:text-white-ghost focus:border-white/40 focus:outline-none"
+            />
+            <button
+              type="submit"
+              aria-label="Send message"
+              className="flex min-h-[40px] min-w-[40px] cursor-pointer items-center justify-center rounded-[var(--radius)] bg-white text-ink transition-opacity hover:opacity-80"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* launcher */}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-label={open ? 'Close chat' : 'Chat with us'}
+        aria-expanded={open}
+        className="pointer-events-auto flex min-h-[44px] items-center gap-2 rounded-[var(--radius)] border border-white/15 bg-surface-raised px-4 text-[11px] uppercase tracking-[0.2em] text-white transition-colors hover:border-white/40"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M4 5h16v11H9l-4 3v-3H4z" />
+        </svg>
+        {open ? 'Close' : 'Chat'}
+      </button>
+    </div>
   )
 }

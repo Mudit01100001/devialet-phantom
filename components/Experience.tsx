@@ -23,6 +23,7 @@ import {
   Professionals,
   Newsletter,
   SiteFooter,
+  ChatWidget,
 } from './PostTake'
 import {
   CanvasErrorBoundary,
@@ -1613,6 +1614,7 @@ export default function Experience() {
       <Professionals />
       <Newsletter />
       <SiteFooter onBackToTop={() => seek(0)} audioOn={audioOn} musicCredit={AUDIO_CREDIT} />
+      <ChatWidget />
     </>
   )
 }
