@@ -44,6 +44,8 @@ The goal was **Awwwards-ceiling craft** — a clean, minimal, "the product *is* 
 
 The camera is driven by **GSAP ScrollTrigger** over a **Lenis** smooth-scroll spacer; beat copy reveals deterministically as a pure function of scroll position (no chained tweens), travelling back in Z with a sharp "read" plateau.
 
+After the film, a short **editorial-and-commerce coda** scrolls up over the held product — sound, presence, connectivity, ownership assurances, and a newsletter, closing on the footer — all in the same dark, type-led language, never a conventional retail card layout.
+
 ## Tech stack & versions
 
 | Layer | Tooling | Version |
@@ -145,7 +147,9 @@ app/
   opengraph-image.png / twitter-image.png
 components/
   Experience.tsx    the whole take — scene, camera rig, scroll timeline,
-                    audio system, HUD, cart, entry gate, footer
+                    audio system, HUD, cart, entry gate, 7 beats
+  PostTake.tsx      post-film coda — sound, presence, connectivity,
+                    assurances, newsletter, footer
   Hud.tsx           persistent top chrome (brand, progress, cart)
   SceneGuard.tsx    WebGL detection, error boundaries, fallback poster
 public/             compressed .glb finishes + soundtrack

@@ -19,6 +19,16 @@
   --color-chrome-bright: #e8e8e8;
   --color-chrome-dim:    #6a6a6a;
 
+  /* Light retail interlude — the single palette flip in the post-film body.
+     Scoped to the retail sections only (Connectivity / FindYourSound / Assurances);
+     the 3D film, the acquire reveal and the footer all stay void-black. Warm
+     off-white, not stark #fff, so it still reads premium. All ink ≥ AA on paper. */
+  --color-paper:        #f4f4f2;
+  --color-paper-deep:   #eaeae7;  /* alt cell surface inside the bento */
+  --color-ink:          #0a0a0a;
+  --color-ink-muted:    #5a5a5a;  /* ~6.6:1 on paper */
+  --color-ink-ghost:    #8a8a8a;  /* ~3.6:1 — large/decorative labels only */
+
   /* UI font: system-ui, not Geist */
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
@@ -26,6 +36,14 @@
 /* Wire Italiana from Next.js font system */
 @theme inline {
   --font-italiana: var(--font-italiana);
+}
+
+/* Universal corner radius for the retail bento/cards/images. Tuned live on
+   localhost via the RadiusTuner dev slider (sets this on :root). The 3D film,
+   HUD, and CTA buttons stay sharp; only box/card/image containers read it via
+   `rounded-[var(--radius)]`. */
+:root {
+  --radius: 12px;
 }
 
 /* ── Base ────────────────────────────────────────────────────── */

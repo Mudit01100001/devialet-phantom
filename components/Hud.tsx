@@ -2,60 +2,79 @@
 
 import { forwardRef, useImperativeHandle, useRef } from 'react'
 
-export type HudHandle = { update: (p: number) => void }
+export type HudHandle = { setHidden: (hidden: boolean) => void }
 
-// Persistent top-bar chrome. The scroll-progress bar is updated imperatively from
-// the ScrollTrigger onUpdate (no React re-render → never disturbs the canvas); the
-// cart count comes in as a prop and re-renders only this lightweight HTML layer.
+// Persistent top nav. Brand left, category links centre, cart right. It auto-hides
+// on scroll-down and returns on scroll-up (driven imperatively from the Lenis scroll
+// handler in Experience.tsx via setHidden → no React re-render). `overLight` flips
+// the chrome to dark ink so it stays legible over the paper retail interlude.
+const NAV = ['Speakers', 'Soundbar', 'Earbuds', 'Amplifiers', 'About']
+
 const Hud = forwardRef<
   HudHandle,
   {
     onSeek: (progress: number) => void
     cartCount?: number
     onOpenCart?: () => void
+    overLight?: boolean
   }
->(function Hud({ onSeek, cartCount = 0, onOpenCart }, ref) {
-  const barRef = useRef<HTMLDivElement>(null)
+>(function Hud({ onSeek, cartCount = 0, onOpenCart, overLight = false }, ref) {
+  const headerRef = useRef<HTMLElement>(null)
 
   useImperativeHandle(ref, () => ({
-    update(p: number) {
-      if (barRef.current) barRef.current.style.transform = `scaleX(${Math.min(1, Math.max(0, p))})`
+    setHidden(hidden: boolean) {
+      const el = headerRef.current
+      if (el) el.style.transform = hidden ? 'translateY(-110%)' : 'translateY(0)'
     },
   }))
 
+  const link = `text-[11px] uppercase tracking-[0.2em] transition-colors duration-300 ${
+    overLight ? 'text-ink-muted hover:text-ink' : 'text-white-muted hover:text-white'
+  }`
+
   return (
-    <>
-      {/* thin scroll-progress bar pinned to the very top edge */}
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-50 h-px bg-white/10">
-        <div
-          ref={barRef}
-          className="h-full w-full origin-left bg-white/70"
-          style={{ transform: 'scaleX(0)' }}
-        />
-      </div>
+    <header
+      ref={headerRef}
+      className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center justify-between gap-6 pl-[max(1.75rem,env(safe-area-inset-left))] pr-[max(1.75rem,env(safe-area-inset-right))] pt-[max(1.4rem,env(safe-area-inset-top))] pb-5 transition-transform duration-500 ease-out will-change-transform"
+    >
+      {/* brand */}
+      <button
+        onClick={() => onSeek(0)}
+        aria-label="Return to top"
+        className={`pointer-events-auto shrink-0 text-sm font-medium tracking-[0.34em] transition-colors duration-500 ${
+          overLight ? 'text-ink' : 'text-white'
+        }`}
+      >
+        PHANTOM
+      </button>
 
-      {/* top bar: brand left, cart right */}
-      <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-start justify-between pb-6 pl-[max(1.75rem,env(safe-area-inset-left))] pr-[max(1.75rem,env(safe-area-inset-right))] pt-[max(1.5rem,env(safe-area-inset-top))]">
-        <button onClick={() => onSeek(0)} aria-label="Return to top" className="pointer-events-auto text-left">
-          <div className="text-sm font-medium tracking-[0.34em] text-white">PHANTOM</div>
-          <div className="mt-1 text-[10px] tracking-[0.28em] text-white-ghost">DEVIALET — CONCEPT</div>
-        </button>
+      {/* category links — inert (concept site; navigating nowhere is better than
+          jumping you around the same page). Hidden on small screens. */}
+      <nav className="pointer-events-auto absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex">
+        {NAV.map((n) => (
+          <button key={n} type="button" className={link}>
+            {n}
+          </button>
+        ))}
+      </nav>
 
-        <button
-          onClick={onOpenCart}
-          aria-label={`Cart, ${cartCount} item${cartCount === 1 ? '' : 's'}`}
-          className="pointer-events-auto flex min-h-[44px] items-center gap-2 pt-1 text-[11px] uppercase tracking-[0.22em] text-white-muted transition-colors duration-300 hover:text-white"
+      {/* cart */}
+      <button
+        onClick={onOpenCart}
+        aria-label={`Cart, ${cartCount} item${cartCount === 1 ? '' : 's'}`}
+        className={`pointer-events-auto flex min-h-[44px] shrink-0 items-center gap-2 tracking-[0.22em] ${link}`}
+      >
+        Cart
+        <span
+          className={`inline-flex h-5 min-w-5 items-center justify-center border px-1 text-[10px] tracking-normal transition-colors duration-500 ${
+            overLight ? 'border-ink/20 text-ink' : 'border-white/20 text-white'
+          }`}
+          data-empty={cartCount === 0}
         >
-          Cart
-          <span
-            className="inline-flex h-5 min-w-5 items-center justify-center border border-white/20 px-1 text-[10px] tracking-normal text-white"
-            data-empty={cartCount === 0}
-          >
-            {cartCount}
-          </span>
-        </button>
-      </header>
-    </>
+          {cartCount}
+        </span>
+      </button>
+    </header>
   )
 })
 

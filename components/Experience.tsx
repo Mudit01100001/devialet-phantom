@@ -15,6 +15,16 @@ import {
 import { BlendFunction, ToneMappingMode } from 'postprocessing'
 import Hud, { type HudHandle } from './Hud'
 import {
+  Sound,
+  Presence,
+  Connectivity,
+  FindYourSound,
+  Assurances,
+  Professionals,
+  Newsletter,
+  SiteFooter,
+} from './PostTake'
+import {
   CanvasErrorBoundary,
   SceneErrorCatcher,
   SceneFallback,
@@ -38,7 +48,10 @@ gsap.registerPlugin(ScrollTrigger)
 // stand = finish-section progress (0→1): raises the stand, arms drag, enables the
 // turntable. Driven by the timeline, not raw scroll, so it stays in sync with the
 // camera's arrival at the finish framing.
-const view = { az: 0.5, el: 0.12, dist: 11, pulse: 0.45, panX: 0, panY: 0, stand: 0 }
+// acquire = the post-film "3D reappears to buy" progress (0→1). The film take ends
+// at the finish beat; far below, a transparent acquire section scrubs this 0→1 and
+// CameraRig blends the held finish framing toward ACQUIRE_VIEW (front-out, slid left).
+const view = { az: 0.5, el: 0.12, dist: 11, pulse: 0.45, panX: 0, panY: 0, stand: 0, acquire: 0 }
 
 // Live, render-cheap globals read every frame by CameraRig. MOBILE is toggled by
 // a resize listener (NOT React state) so the camera reframes for portrait without
@@ -325,12 +338,22 @@ function CameraRig() {
     // On mobile, past the hero, swap the horizontal pan for a pull-back + upward
     // lift so the model sits in the top half and the bottom-anchored copy clears
     // it. Damped like everything else, so toggling MOBILE on resize eases in.
+    // Acquire reveal: when the post-film buying section scrubs view.acquire 0→1,
+    // blend the held finish framing toward ACQUIRE_VIEW (front turns out, speaker
+    // slides left for the panel on the right). a=0 during the film → no effect.
+    const a = view.acquire
+    const vAz = view.az + (ACQUIRE_VIEW.az - view.az) * a
+    const vEl = view.el + (ACQUIRE_VIEW.el - view.el) * a
+    const vDist = view.dist + (ACQUIRE_VIEW.dist - view.dist) * a
+    const vPanX = view.panX + (ACQUIRE_VIEW.panX - view.panX) * a
+    const vPanY = view.panY + (ACQUIRE_VIEW.panY - view.panY) * a
+
     const lift = MOBILE && PROGRESS > 0.04
-    const tDist = lift ? view.dist * MOBILE_DIST : view.dist
-    const tPanX = lift ? 0 : view.panX
-    const tPanY = lift ? MOBILE_LIFT : view.panY
-    c.az += (view.az + pointer.x * 0.13 - c.az) * 0.08
-    c.el += (view.el + pointer.y * 0.08 - c.el) * 0.08
+    const tDist = lift ? vDist * MOBILE_DIST : vDist
+    const tPanX = lift ? 0 : vPanX
+    const tPanY = lift ? MOBILE_LIFT : vPanY
+    c.az += (vAz + pointer.x * 0.13 - c.az) * 0.08
+    c.el += (vEl + pointer.y * 0.08 - c.el) * 0.08
     c.dist += (tDist - c.dist) * 0.08
     c.panX += (tPanX - c.panX) * 0.08
     c.panY += (tPanY - c.panY) * 0.08
@@ -538,6 +561,10 @@ function EntryGate({
         PHANTOM
       </div>
 
+      <p className="-mt-4 text-[10px] uppercase tracking-[0.32em] text-white-ghost">
+        Concept site · cannot order from here
+      </p>
+
       {!sceneLoaded ? (
         <div className="flex flex-col items-center gap-3">
           <div className="h-px w-40 overflow-hidden bg-white/15">
@@ -638,19 +665,50 @@ function AudioTuner() {
   )
 }
 
-// Per-beat camera framing (beats 1–6: shape, power, detail, spine, finish, acquire).
+// Dev-only (localhost) universal corner-radius slider. Writes --radius on :root, so
+// every retail box/card/image (which read `rounded-[var(--radius)]`) updates live.
+// Never ships (gated on NODE_ENV at the mount). Bottom-right so it clears the tuner.
+function RadiusTuner() {
+  const [r, setR] = useState(12)
+  return (
+    <div className="pointer-events-auto fixed bottom-4 right-4 z-[80] w-56 border border-white/15 bg-black/80 p-4 text-white">
+      <div className="mb-1 text-[10px] uppercase tracking-[0.28em] text-white-ghost">Radius · dev only</div>
+      <label className="mt-2 block text-[10px] uppercase tracking-[0.18em] text-white-muted">
+        Corner radius · {r}px
+        <input
+          type="range"
+          min={0}
+          max={28}
+          step={1}
+          value={r}
+          onChange={(e) => {
+            const v = +e.target.value
+            setR(v)
+            document.documentElement.style.setProperty('--radius', `${v}px`)
+          }}
+          className="mt-1 w-full"
+        />
+      </label>
+    </div>
+  )
+}
+
+// Per-beat camera framing (beats 1–5: shape, power, detail, spine, finish).
 // panX/panY are SCREEN fractions, set OPPOSITE the text so the speaker travels
-// away from the incoming copy. The finish beat pans slightly DOWN (panY < 0) so
-// the speaker sits LOWER than the picker; the acquire beat pushes the speaker LEFT
-// (panX < 0) to make room for the buying panel on the right.
+// away from the incoming copy. The finish beat — now the LAST beat of the film —
+// pans slightly DOWN (panY < 0) so the speaker sits LOWER than the picker.
 const CAM = [
   { az: 1.25, el: 0.06, dist: 9.6, pulse: 0.18, panX: 0.42, panY: 0 }, // shape  — text left,  speaker right
   { az: 1.95, el: 0.0, dist: 7.6, pulse: 1.0, panX: -0.42, panY: 0 }, // power  — text right, speaker left
   { az: -0.12, el: 0.05, dist: 7.2, pulse: 0.18, panX: 0.42, panY: 0 }, // detail — text left,  speaker right
   { az: -2.85, el: 0.18, dist: 8.6, pulse: 0.18, panX: -0.42, panY: 0 }, // spine  — text right, speaker left
   { az: -5.73, el: 0.2, dist: 9.6, pulse: 0.3, panX: 0, panY: -0.12 }, // finish — picker top, speaker low (raised el: less grazing → matte-black survives)
-  { az: -7.85, el: 0.1, dist: 11, pulse: 0.22, panX: -0.55, panY: 0 }, // acquire — speaker slides LEFT and turns its FRONT toward the buying panel on the right
 ] as const
+
+// The buying framing for the post-film ACQUIRE reveal (was the old beat-6 acquire
+// shot). The speaker slides LEFT and turns its FRONT toward the buying panel on the
+// right. CameraRig blends from the held finish framing toward this by view.acquire.
+const ACQUIRE_VIEW = { az: -7.85, el: 0.1, dist: 11, panX: -0.55, panY: 0 } as const
 
 // Mobile reframing constants. A narrow portrait viewport has no horizontal room
 // for the desktop "speaker pans away from the side copy" trick, so CameraRig
@@ -676,6 +734,12 @@ export default function Experience() {
   // Scroll progress (0–1) at which each beat is centred — populated by the timeline
   // effect, read by the keyboard navigation handler to jump beat-to-beat.
   const peakRef = useRef<number[]>([])
+  // The fixed beat-text overlay (film copy + finish picker). Faded out as the
+  // post-film acquire reveal scrubs in, so the finish picker never bleeds through
+  // the transparent acquire section sitting above it.
+  const overlayRef = useRef<HTMLDivElement>(null)
+  // The post-film acquire section — its ScrollTrigger drives view.acquire 0→1.
+  const acquireRef = useRef<HTMLElement>(null)
   // Audio (desktop only, gesture-unlocked). Created lazily; null until entered.
   const audioElRef = useRef<HTMLAudioElement | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
@@ -699,6 +763,10 @@ export default function Experience() {
   // finish chosen at the time, so the cart drawer can list real line items.
   const [cart, setCart] = useState<{ id: number; label: string; price: string }[]>([])
   const [cartOpen, setCartOpen] = useState(false)
+  // True while the light retail interlude is under the top bar — flips the HUD +
+  // bottom-left sound control to dark ink so they stay legible on the paper sections.
+  const [overLight, setOverLight] = useState(false)
+  const lightRef = useRef<HTMLDivElement>(null)
   const selected = FINISH_META.find((f) => f.id === finish) ?? FINISH_META[0]
   const PRICE = '€2,990'
   const addToCart = () => setCart((c) => [...c, { id: Date.now() + Math.random(), label: selected.label, price: PRICE }])
@@ -842,16 +910,26 @@ export default function Experience() {
     reducedRef.current = reduced
     AUDIO.reduced = reduced
 
-    // Heavier, weightier scroll: lower lerp = more glide/inertia; wheelMultiplier
-    // < 1 stops a fast flick from blasting through the whole page at once.
+    // Smooth but light scroll: higher lerp = less glide/more responsive (the old
+    // 0.06 felt heavy to navigate); wheelMultiplier 1 tracks the wheel 1:1.
     // Reduced motion → lerp 1 + no smooth wheel ≈ native scroll, no inertia.
     const lenis = new Lenis({
-      lerp: reduced ? 1 : 0.06,
-      wheelMultiplier: reduced ? 1 : 0.9,
+      lerp: reduced ? 1 : 0.1,
+      wheelMultiplier: reduced ? 1 : 1,
       smoothWheel: !reduced,
     })
     lenisRef.current = lenis
-    lenis.on('scroll', ScrollTrigger.update)
+    // Keep ScrollTrigger in sync, and hide the top nav on scroll-down / reveal it on
+    // scroll-up (always shown near the top). Driven imperatively → no React render.
+    let lastScrollY = 0
+    lenis.on('scroll', (e: { scroll?: number }) => {
+      ScrollTrigger.update()
+      const y = typeof e?.scroll === 'number' ? e.scroll : window.scrollY
+      if (y <= 120) hud.current?.setHidden(false)
+      else if (y > lastScrollY + 2) hud.current?.setHidden(true)
+      else if (y < lastScrollY - 2) hud.current?.setHidden(false)
+      lastScrollY = y
+    })
     const raf = (time: number) => lenis.raf(time * 1000)
     gsap.ticker.add(raf)
     gsap.ticker.lagSmoothing(0)
@@ -918,7 +996,7 @@ export default function Experience() {
         const d = p - PEAK[i]
         let t: number
         if (i === 0) t = clamp01((d - READ) / TRANS) // hero: sharp at top, recede after
-        else if (i === lastIdx) t = clamp01((-d - READ) / TRANS) // acquire: approach, then stay sharp + interactive
+        else if (i === lastIdx) t = clamp01((-d - READ) / TRANS) // finish: approach, then stay sharp + interactive (picker)
         else t = clamp01((Math.abs(d) - READ) / TRANS) // middle (incl. finish): rise to sharp, sink away
         const vis = 1 - smooth(t)
         el.style.opacity = vis.toFixed(3)
@@ -939,7 +1017,6 @@ export default function Experience() {
         scrub: reduced ? true : 0.8,
         onUpdate: (self) => {
           PROGRESS = self.progress
-          hud.current?.update(self.progress)
           updateText(self.progress)
         },
       },
@@ -947,10 +1024,11 @@ export default function Experience() {
 
     tl.to({}, { duration: HERO_HOLD }) // hold on the hero before anything moves
 
-    // Finish is the SECOND-to-last beat now (acquire is last). The stand rises as
-    // the camera arrives at finish and STAYS up through acquire (the buying shot
-    // shows the speaker on its stand). Drag stays armed via view.stand in both.
-    const FINISH_BEAT = beats.length - 2
+    // Finish is the LAST beat of the film now (acquire moved to the post-film
+    // reveal). The stand rises as the camera arrives at finish and STAYS up — it
+    // persists past the timeline into the acquire reveal (which shows the speaker
+    // on its stand). Drag stays armed via view.stand in both.
+    const FINISH_BEAT = beats.length - 1
     beats.forEach((b, i) => {
       if (i === 0 || !b) return
       const cam = CAM[i - 1]
@@ -963,15 +1041,44 @@ export default function Experience() {
       tl.to({}, { duration: TIN }) // settle — copy rises to sharp via updateText
       tl.to({}, { duration: HOLD }) // hold — reading time
     })
-    tl.to({}, { duration: TAIL }) // tail so the acquire panel holds to the very bottom
+    tl.to({}, { duration: TAIL }) // tail so the finish picker holds to the very bottom of the film
 
     updateText(0) // paint the initial (hero) state before the first scroll event
+
+    // Post-film ACQUIRE reveal. A transparent section far below the film scrubs
+    // view.acquire 0→1 as it rises into view; CameraRig blends the held finish
+    // framing toward ACQUIRE_VIEW (speaker turns front-out and slides left). The
+    // film's fixed text overlay fades out in lock-step so the finish picker can't
+    // bleed through the transparent acquire section stacked above it. Reversible:
+    // scrolling back up runs progress→0, restoring the film framing + overlay.
+    const acquireST = ScrollTrigger.create({
+      trigger: acquireRef.current,
+      start: 'top bottom', // section top enters from the viewport bottom
+      end: 'top top', // section top reaches the viewport top (panel then pinned by sticky)
+      scrub: reduced ? true : 0.8,
+      onUpdate: (self) => {
+        view.acquire = self.progress
+        if (overlayRef.current) overlayRef.current.style.opacity = (1 - self.progress).toFixed(3)
+      },
+    })
+
+    // Flip the HUD/sound chrome to dark ink while the light retail interlude spans
+    // the top of the viewport (the white-on-black HUD is invisible on paper). Not a
+    // per-frame toggle — fires only on enter/leave, so the extra renders are cheap.
+    const lightST = ScrollTrigger.create({
+      trigger: lightRef.current,
+      start: 'top top',
+      end: 'bottom top',
+      onToggle: (self) => setOverLight(self.isActive),
+    })
 
     return () => {
       window.removeEventListener('pointermove', onMove)
       mq.removeEventListener('change', onMQ)
       tl.scrollTrigger?.kill()
       tl.kill()
+      acquireST.kill()
+      lightST.kill()
       gsap.ticker.remove(raf)
       lenis.destroy()
     }
@@ -1071,7 +1178,7 @@ export default function Experience() {
     <>
     <div ref={main} className="relative">
       <EntryGate soundCapable={soundCapable} audioErrored={audioErrored} onEnter={enterExperience} />
-      <Hud ref={hud} onSeek={seek} cartCount={cart.length} onOpenCart={() => setCartOpen((o) => !o)} />
+      <Hud ref={hud} onSeek={seek} cartCount={cart.length} onOpenCart={() => setCartOpen((o) => !o)} overLight={overLight} />
 
       {/* Bottom-left sound control — click the bars to mute; a volume slider slides
           out on hover or keyboard focus. Shown only once the soundtrack is playing. */}
@@ -1086,11 +1193,11 @@ export default function Experience() {
             {[6, 11, 4, 9, 5].map((h, i) => (
               <span
                 key={i}
-                className={`w-[2px] origin-bottom bg-white-ghost ${muted ? '' : 'eq-bar'}`}
+                className={`w-[2px] origin-bottom ${overLight ? 'bg-ink-ghost' : 'bg-white-ghost'} ${muted ? '' : 'eq-bar'}`}
                 style={{ height: h, animationDelay: `${i * 0.12}s`, transform: muted ? 'scaleY(0.3)' : undefined }}
               />
             ))}
-            <span className="ml-2 text-[10px] tracking-[0.28em] text-white-ghost">{muted ? 'SOUND OFF' : 'SOUND'}</span>
+            <span className={`ml-2 text-[10px] tracking-[0.28em] ${overLight ? 'text-ink-ghost' : 'text-white-ghost'}`}>{muted ? 'SOUND OFF' : 'SOUND'}</span>
           </button>
           <div className="mb-[5px] flex items-center overflow-hidden opacity-0 [width:0] transition-all duration-300 ease-out group-hover:opacity-100 group-hover:[width:6.5rem] group-focus-within:opacity-100 group-focus-within:[width:6.5rem]">
             <input
@@ -1109,6 +1216,7 @@ export default function Experience() {
 
       {/* Dev-only woofer tuner (localhost). Never ships — gated on NODE_ENV. */}
       {process.env.NODE_ENV !== 'production' && audioOn && <AudioTuner />}
+      {process.env.NODE_ENV !== 'production' && <RadiusTuner />}
 
       {/* Cart drawer — floating panel on the right with the added line items */}
       <div
@@ -1178,7 +1286,7 @@ export default function Experience() {
               Checkout
             </button>
             <p className="mt-3 text-center text-[10px] tracking-[0.15em] text-white-ghost">
-              Checkout disabled — concept
+              Checkout disabled · concept
             </p>
           </div>
         </aside>
@@ -1252,7 +1360,7 @@ export default function Experience() {
           page's scroll height comes from the spacer below, not from these blocks,
           so copy and camera are choreographed independently. Positioning wrappers
           handle centring; the inner refs are what GSAP transforms (no clash). */}
-      <div className="pointer-events-none fixed inset-0 z-10 [text-shadow:0_2px_24px_rgba(0,0,0,0.5)]">
+      <div ref={overlayRef} className="pointer-events-none fixed inset-0 z-10 [text-shadow:0_2px_24px_rgba(0,0,0,0.5)]">
         {/* Beat 0 — hero tagline + scroll cue */}
         <div ref={setBeat(0)} className="absolute inset-0">
           <p className="absolute left-1/2 top-[75%] -translate-x-1/2 text-xs uppercase tracking-[0.35em] text-white-muted">
@@ -1274,7 +1382,7 @@ export default function Experience() {
             </h2>
             <p className="mx-auto mt-5 max-w-xs font-light leading-relaxed text-white-muted md:mx-0">
               One continuous surface, pressurised like an aircraft fuselage. The form isn&apos;t
-              styling — it&apos;s physics.
+              styling. It&apos;s physics.
             </p>
           </div>
         </div>
@@ -1298,7 +1406,7 @@ export default function Experience() {
               Engineered to the millimetre.
             </h2>
             <p className="mx-auto mt-5 max-w-xs font-light leading-relaxed text-white-muted md:mx-0">
-              Every grille opening, every curve of the tweeter — machined for sound, not for show.
+              Every grille opening, every curve of the tweeter, machined for sound, not show.
             </p>
           </div>
         </div>
@@ -1310,7 +1418,7 @@ export default function Experience() {
               Heat, silenced.
             </h2>
             <p className="mx-auto mt-5 max-w-xs font-light leading-relaxed text-white-muted md:ml-auto md:mr-0">
-              The spine draws 1100 watts of heat out through machined fins — no vents, no fans, no
+              The spine draws 1100 watts of heat out through machined fins. No vents, no fans, no
               hum.
             </p>
           </div>
@@ -1346,13 +1454,48 @@ export default function Experience() {
           </div>
         </div>
 
-        {/* Beat 6 — acquire. Desktop: speaker slides LEFT (CAM panX < 0) and the
-            buying panel arrives on the right. Mobile: speaker lifts up, panel
-            becomes a full-width bottom sheet. Stays sharp + interactive. */}
-        <div className="absolute inset-x-0 bottom-0 flex items-end justify-center px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:left-auto md:right-[8vw] md:top-0 md:items-center md:justify-end md:px-0 md:pb-0">
-          <div ref={setBeat(6)} className="w-full max-w-md md:w-[min(22rem,82vw)]">
-            <div className="pointer-events-auto text-left">
-              <h2 className={`${display} text-5xl uppercase leading-none text-white`}>Phantom</h2>
+      </div>
+
+      {/* Scroll spacer — gives the page its height so the timeline has room to
+          play. The film now ends at the finish beat (one fewer beat), so the
+          spacer is shorter to keep the per-beat pacing. Everything visible is
+          fixed; this empty column is the scrollbar. */}
+      <div aria-hidden className="h-[720vh]" />
+    </div>
+
+      {/* ── Post-film body ──────────────────────────────────────────────────
+          Siblings of `main`. The fixed canvas (z-0) holds the finish frame; the
+          dark sections (z-20, opaque bg-void) scroll up over it. The two editorial
+          beats continue the film's voice, then the LIGHT retail interlude breaks
+          the black, then the 3D REAPPEARS for the acquire/buy moment, then the
+          dark close. PostTake.tsx holds the stateless content sections; the acquire
+          reveal stays here because it needs the cart/finish state + the camera. */}
+
+      {/* ACT II — editorial (dark) */}
+      <Sound />
+      <Presence />
+
+      {/* ACT III — light retail interlude (paper). Wrapped so one ScrollTrigger can
+          flip the HUD to dark ink while this block is under the top bar. */}
+      <div ref={lightRef}>
+        <Connectivity />
+        <FindYourSound />
+      </div>
+
+      {/* ACT IV — ACQUIRE: the 3D reappears. Transparent section — the fixed canvas
+          shows the speaker through it while the acquire ScrollTrigger blends the
+          camera to the buy framing (view.acquire 0→1). The sticky inner pins the
+          buying panel centre-screen for an interaction window; its wrapper is
+          pointer-events-none so drag-to-rotate still reaches the canvas on the left,
+          and only the panel captures clicks. */}
+      <section ref={acquireRef} className="relative z-20 h-[200vh]">
+        <div className="pointer-events-none sticky top-0 flex h-screen items-end px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:items-center md:px-0 md:pb-0">
+          <div className="pointer-events-auto ml-auto w-full max-w-md md:mr-[8vw] md:w-[min(24rem,40vw)]">
+            <div className="text-left">
+              <p className="text-[10px] uppercase tracking-[0.42em] text-white-ghost">Acquire</p>
+              <h2 className={`${display} mt-4 text-5xl uppercase leading-none text-white md:text-6xl`}>
+                Phantom
+              </h2>
               <p className="mt-2 text-[11px] uppercase tracking-[0.28em] text-white-muted">
                 {selected.label}
               </p>
@@ -1383,7 +1526,7 @@ export default function Experience() {
                     right here, without scrolling back up to the finish section. */}
                 <details className="group border-t border-white/10 py-3" open>
                   <summary className="flex cursor-pointer list-none items-center justify-between text-[11px] uppercase tracking-[0.2em] text-white [&::-webkit-details-marker]:hidden">
-                    <span>Finish — {selected.label}</span>
+                    <span>Finish · {selected.label}</span>
                     <span className="text-base leading-none text-white-muted transition-transform duration-300 group-open:rotate-45">
                       +
                     </span>
@@ -1434,46 +1577,14 @@ export default function Experience() {
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Scroll spacer — gives the page its height so the timeline has room to
-          play. Everything visible is fixed; this empty column is the scrollbar. */}
-      <div aria-hidden className="h-[860vh]" />
-    </div>
-
-      {/* Closing / footer — a SIBLING of `main` so it sits outside the camera
-          ScrollTrigger (main's 860vh drives the take). With a solid bg + higher
-          z than the fixed canvas, it slides up over the product exactly as the
-          acquire beat finishes — the deliberate end of the story. */}
-      <footer className="relative z-20 flex min-h-screen flex-col bg-void">
-        <div className="flex flex-1 flex-col items-center justify-center gap-7 px-6 text-center">
-          <p className="text-[10px] uppercase tracking-[0.42em] text-white-ghost">Devialet — Concept</p>
-          <h2 className={`${display} text-balance text-4xl uppercase leading-[1.05] text-white md:text-6xl`}>
-            Hear it for yourself.
-          </h2>
-          <button
-            onClick={() => seek(0)}
-            aria-label="Back to top"
-            className="mt-3 inline-flex min-h-[44px] cursor-pointer items-center justify-center border border-white/25 px-7 text-[11px] uppercase tracking-[0.2em] text-white transition-colors hover:border-white"
-          >
-            Back to top
-          </button>
-        </div>
-        <div className="flex flex-col items-center gap-2 border-t border-white/10 px-6 py-8 text-center">
-          <p className="text-[10px] uppercase tracking-[0.28em] text-white-muted">
-            The entire 3D model — built from scratch in Blender by Mudit
-          </p>
-          <p className="text-[10px] uppercase tracking-[0.24em] text-white-ghost">
-            Real-time site in React Three Fiber + GSAP
-          </p>
-          {audioOn && (
-            <p className="text-[10px] uppercase tracking-[0.24em] text-white-ghost">Music · {AUDIO_CREDIT}</p>
-          )}
-          <p className="text-[10px] tracking-[0.08em] text-white-ghost">
-            Phantom and Devialet are trademarks of Devialet. An unaffiliated design concept.
-          </p>
-        </div>
-      </footer>
+      {/* ACT V — close (dark). Assurances sits directly below the order/acquire
+          section (now dark: black + grey tiles), then the pro band + newsletter. */}
+      <Assurances />
+      <Professionals />
+      <Newsletter />
+      <SiteFooter onBackToTop={() => seek(0)} audioOn={audioOn} musicCredit={AUDIO_CREDIT} />
     </>
   )
 }

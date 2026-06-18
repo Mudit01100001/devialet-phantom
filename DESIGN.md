@@ -22,6 +22,14 @@ colors:
   chrome-bright: "#e8e8e8"
   chrome-dim: "#6a6a6a"
 
+  # Light retail interlude — the single palette flip (Connectivity / FindYourSound /
+  # Assurances). Scoped to those sections only; film + acquire + footer stay void.
+  paper: "#f4f4f2"        # warm off-white surface, never stark #fff
+  paper-deep: "#eaeae7"   # alt bento-tile surface
+  ink: "#0a0a0a"          # primary text on paper
+  ink-muted: "#5a5a5a"    # secondary text on paper (~6.6:1)
+  ink-ghost: "#8a8a8a"    # large/decorative labels on paper
+
   # Finish palette (only used in the finish-picker section)
   finish-ivory: "#f5f0e8"
   finish-gold: "#c9a96e"
@@ -155,6 +163,16 @@ The design logic is borrowed from two sources: **Apple's product-first restraint
 Darkness is the canvas. `{colors.void}` (#000000) is the true page background. Sections that "change" do so by shifting to `{colors.surface-deep}` (#111111) or `{colors.surface-raised}` (#1a1a1a) — not by changing color. Elevation is communicated through surface lightening, never through box-shadow. Box-shadow does not exist in this system.
 
 The single exception: the 3D renderer itself carries cinematic studio lighting (Lightformer-based). The model is the only thing with real depth and real shadow. Everything else is flat.
+
+### Light retail interlude (the one palette flip)
+
+The post-film body has a single, deliberate flip to light — the **retail interlude**: `Connectivity → FindYourSound → Assurances` render on `{colors.paper}` (#f4f4f2, a warm off-white — never stark `#fff`). This breaks the long black run between pick-color (end of the film) and add-to-cart (the acquire reveal), and lets the page read like a real product/retail site. It is the **only** light region: the 3D film, the acquire reveal, and the footer all stay `void`-black.
+
+Rules inside the interlude:
+- Ink tokens only: `{colors.ink}` / `ink-muted` / `ink-ghost` on `paper` / `paper-deep`. No hard-coded grays.
+- **Bento is built from layout, not rounding** — varied cell sizes + `paper-deep` tiles + dark hairlines (`black/10`). Sharp corners still hold (the chrome ring is the only curve). A single dark (`void`) card may sit inside the interlude for contrast (the inverted "Find your sound" card).
+- Connectivity uses **recognizable third-party marks** (AirPlay / Bluetooth / Spotify / Cast) inline + tracked wordmarks for the rest — monochrome ink, one family. Shown under the concept's trademark disclaimer.
+- Still no gradients, no glassmorphism, no box-shadow.
 
 ## Typography
 
