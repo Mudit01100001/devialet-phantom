@@ -29,41 +29,6 @@ function GhostLink({ children, className = '' }: { children: React.ReactNode; cl
   )
 }
 
-// ── Swappable image slot ────────────────────────────────────────────────────
-// Reads clearly as a placeholder (hairline frame, corner ticks, centred label) so
-// Mudit can drop a rendered still in later by replacing it with an <img>/<video>.
-// NOTE for later: pair each real render with a low-res poster / blurred LQIP so the
-// editorial images still resolve on a slow network instead of popping in late.
-function ImagePlaceholder({
-  label,
-  hint,
-  tone = 'dark',
-  className = '',
-}: {
-  label: string
-  hint?: string
-  tone?: 'dark' | 'light'
-  className?: string
-}) {
-  const dark = tone === 'dark'
-  const frame = dark ? 'border-white/12 bg-white/[0.015]' : 'border-black/12 bg-black/[0.02]'
-  const tick = dark ? 'border-white/25' : 'border-black/25'
-  const text = dark ? 'text-white-ghost' : 'text-ink-ghost'
-  return (
-    <div
-      className={`relative flex flex-col items-center justify-center gap-2 overflow-hidden rounded-[var(--radius)] border text-center ${frame} ${className}`}
-      aria-hidden
-    >
-      <span className={`pointer-events-none absolute left-3 top-3 h-3 w-3 border-l border-t ${tick}`} />
-      <span className={`pointer-events-none absolute right-3 top-3 h-3 w-3 border-r border-t ${tick}`} />
-      <span className={`pointer-events-none absolute bottom-3 left-3 h-3 w-3 border-b border-l ${tick}`} />
-      <span className={`pointer-events-none absolute bottom-3 right-3 h-3 w-3 border-b border-r ${tick}`} />
-      <span className={`text-[10px] uppercase tracking-[0.32em] ${text}`}>{label}</span>
-      {hint && <span className={`text-[10px] tracking-[0.18em] ${text} opacity-70`}>{hint}</span>}
-    </div>
-  )
-}
-
 // ── SOUND ─────────────────────────────────────────────────────────────────
 // Crisp editorial beat. Image gets the wider column; both editorial photos share a
 // 3:2 ratio and the same grid so their columns line up section to section.
@@ -85,10 +50,10 @@ export function Sound() {
             You paid for what you don&apos;t hear: no port noise, no cabinet ring, no fan.
           </p>
         </div>
-        <ImagePlaceholder
-          label="Product macro"
-          hint="Render → replace · 3:2"
-          className="aspect-[3/2] w-full"
+        <img
+          src="/post/sound-macro.jpeg"
+          alt="Macro detail of the Phantom's chrome woofer ring against its brushed body."
+          className="aspect-[3/2] w-full rounded-[var(--radius)] object-cover"
         />
       </div>
     </section>
@@ -100,10 +65,10 @@ export function Presence() {
   return (
     <section className="relative z-20 bg-void px-6 py-14 md:px-[8vw] md:py-20">
       <div className="mx-auto grid max-w-6xl items-center gap-8 md:grid-cols-[1.1fr_0.9fr] md:gap-12">
-        <ImagePlaceholder
-          label="Lifestyle"
-          hint="Render → replace · 3:2"
-          className="order-last aspect-[3/2] w-full md:order-first"
+        <img
+          src="/post/presence-lifestyle.jpeg"
+          alt="The Phantom at home, filling a room from a single point."
+          className="order-last aspect-[3/2] w-full rounded-[var(--radius)] object-cover md:order-first"
         />
         <div>
           <p className="text-[10px] uppercase tracking-[0.42em] text-white-ghost">Presence</p>
@@ -268,21 +233,19 @@ export function FindYourSound() {
         </h2>
 
         <div className="mt-10 grid gap-4 md:gap-5">
-          <ImagePlaceholder
-            label="Range hero"
-            hint="Render → replace · 21:9"
-            tone="light"
-            className="aspect-[16/9] w-full md:aspect-[21/9]"
+          <img
+            src="/post/range-hero.jpeg"
+            alt="The Phantom range shown together."
+            className="aspect-[16/9] w-full rounded-[var(--radius)] object-cover md:aspect-[21/9]"
           />
 
           <div className="grid gap-4 md:grid-cols-2 md:gap-5">
             {/* light editorial card, now with a small image */}
             <div className="flex flex-col rounded-[var(--radius)] bg-paper-deep p-7 md:p-9">
-              <ImagePlaceholder
-                label="Heritage"
-                hint="Render → replace · 16:9"
-                tone="light"
-                className="aspect-[16/9] w-full"
+              <img
+                src="/post/heritage.jpeg"
+                alt="The original Phantom form beside its refined successor."
+                className="aspect-[16/9] w-full rounded-[var(--radius)] object-cover"
               />
               <h3 className="mt-6 text-lg font-normal tracking-wide text-ink">
                 The evolution of the revolution.
@@ -457,48 +420,56 @@ export function Newsletter() {
     <section className="relative z-20 bg-void px-6 py-20 md:px-[8vw] md:py-28">
       <div className="mx-auto max-w-6xl">
         {/* outer rectangle — moon image slot (lighter tone) */}
-        <div className="relative flex min-h-[24rem] items-center overflow-hidden rounded-[var(--radius)] bg-surface-raised px-6 py-10 md:px-14 md:py-16">
-          <div className="absolute inset-0 flex items-center justify-center" aria-hidden>
-            <span className="text-[10px] uppercase tracking-[0.4em] text-white-ghost">
-              Night sky · moon → replace
-            </span>
-          </div>
+        <div className="relative flex min-h-[24rem] items-center justify-center overflow-hidden rounded-[var(--radius)] bg-surface-raised px-6 py-10 md:px-14 md:py-16">
+          <img
+            src="/post/newsletter-moon.png"
+            alt=""
+            aria-hidden
+            className="absolute inset-0 h-full w-full object-cover"
+          />
 
-          {/* inner white card */}
-          <div className="relative z-10 w-full max-w-md rounded-[var(--radius)] bg-white p-8 text-ink md:p-10">
-            <h2 className={`${display} text-3xl uppercase leading-[1.05] md:text-4xl`}>
-              Join the revolution
-            </h2>
-            <p className="mt-3 text-[13px] font-light leading-relaxed text-ink-muted">
-              Sign up for live updates on Devialet. All over the world.
-            </p>
+          {/* inner white card — centred, two columns (copy left / form right) */}
+          <div className="relative z-10 mx-auto w-full max-w-4xl rounded-[var(--radius)] bg-white p-8 text-ink md:p-12">
+            <div className="grid gap-8 md:grid-cols-2 md:items-center md:gap-14">
+              {/* left — heading + copy */}
+              <div>
+                <h2 className={`${display} text-3xl uppercase leading-[1.05] md:text-4xl`}>
+                  Join the revolution
+                </h2>
+                <p className="mt-3 text-[13px] font-light leading-relaxed text-ink-muted">
+                  Sign up for live updates on Devialet. All over the world.
+                </p>
+                <p className="mt-6 text-[10px] font-light leading-relaxed text-ink-ghost">
+                  Devialet will only use the information you provide for the limited purposes set out
+                  in our Privacy Policy.
+                </p>
+              </div>
 
-            {done ? (
-              <p className="mt-6 text-sm font-light text-ink">You&apos;re on the list. Listen out.</p>
-            ) : (
-              <form onSubmit={submit} className="mt-6 flex flex-col gap-3 sm:flex-row" noValidate>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email"
-                  aria-label="Email address"
-                  className="w-full rounded-[var(--radius)] border border-black/15 bg-white px-4 py-3 text-sm font-light text-ink placeholder:text-ink-ghost focus:border-ink focus:outline-none"
-                />
-                <button
-                  type="submit"
-                  disabled={!valid}
-                  className="min-h-[44px] shrink-0 cursor-pointer rounded-[var(--radius)] bg-ink px-7 py-3 text-[11px] uppercase tracking-[0.2em] text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-30"
-                >
-                  Subscribe
-                </button>
-              </form>
-            )}
-
-            <p className="mt-4 text-[10px] font-light leading-relaxed text-ink-ghost">
-              Devialet will only use the information you provide for the limited purposes set out in
-              our Privacy Policy.
-            </p>
+              {/* right — form */}
+              <div>
+                {done ? (
+                  <p className="text-sm font-light text-ink">You&apos;re on the list. Listen out.</p>
+                ) : (
+                  <form onSubmit={submit} className="flex flex-col gap-3" noValidate>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Email"
+                      aria-label="Email address"
+                      className="w-full rounded-[var(--radius)] border border-black/15 bg-white px-4 py-3 text-sm font-light text-ink placeholder:text-ink-ghost focus:border-ink focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!valid}
+                      className="min-h-[44px] w-full cursor-pointer rounded-[var(--radius)] bg-ink px-7 py-3 text-[11px] uppercase tracking-[0.2em] text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      Subscribe
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
