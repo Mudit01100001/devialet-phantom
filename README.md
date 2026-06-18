@@ -25,11 +25,11 @@
 
 ## What it is
 
-A single, continuous **scroll-scrubbed camera take** around a real-time 3D model of the Devialet Phantom speaker — hand-modelled from scratch in Blender, exported to a compressed `.glb`, and rendered in the browser with React Three Fiber. The whole page reads like one cinematic product film: the camera travels, settles, and holds across seven beats while the speaker reacts to a live soundtrack.
+A single, continuous **scroll-scrubbed camera take** around a real-time 3D model of the Devialet Phantom speaker — hand-modelled from scratch in Blender, exported to a compressed `.glb`, and rendered in the browser with React Three Fiber. The whole page reads like one cinematic product film: the camera travels, settles, and holds across six beats while the speaker reacts to a live soundtrack — then, below the film, the page becomes a full product/retail experience and the 3D speaker reappears for the buying moment.
 
 The goal was **Awwwards-ceiling craft** — a clean, minimal, "the product *is* the page" experience — taken end to end: modelling, compression, real-time rendering, post-processing grade, scroll choreography, audio reactivity, accessibility, and cross-browser resilience.
 
-## The experience — seven beats, one take
+## The experience — six beats, one take
 
 | # | Beat | What happens |
 |---|------|--------------|
@@ -38,13 +38,20 @@ The goal was **Awwwards-ceiling craft** — a clean, minimal, "the product *is* 
 | 3 | **Power** | *"108 dB."* — the woofers thump hardest here. |
 | 4 | **Detail** | *"Engineered to the millimetre."* — close on the tweeter. |
 | 5 | **Spine** | *"Heat, silenced."* — the machined rear fins. |
-| 6 | **Finish** | Choose Gold / Rose Gold / Matte Black; drag the seated turntable. |
-| 7 | **Acquire** | A buying panel — price, specs, finish, add-to-cart drawer. |
-| — | **Close** | A footer slides up over the product: *"Hear it for yourself."* |
+| 6 | **Finish** | Choose Gold / Rose Gold / Matte Black; drag the seated turntable. The film ends here. |
 
 The camera is driven by **GSAP ScrollTrigger** over a **Lenis** smooth-scroll spacer; beat copy reveals deterministically as a pure function of scroll position (no chained tweens), travelling back in Z with a sharp "read" plateau.
 
-After the film, a short **editorial-and-commerce coda** scrolls up over the held product — sound, presence, connectivity, ownership assurances, and a newsletter, closing on the footer — all in the same dark, type-led language, never a conventional retail card layout.
+## After the film — the retail body
+
+The film ends at *pick a finish*; the rest of the page reads like a real product page, structured as a deliberate **dark → light → dark** sequence:
+
+1. **Editorial (dark)** — *Sound* and *Presence*, two type-led beats that carry the film's voice.
+2. **Light retail interlude (paper)** — the single palette flip. A **selectable connectivity bento** (a row of marks — AirPlay, Spotify, Bluetooth, Cast and the rest — where clicking one updates its explanation below the row) and *The Range*.
+3. **Acquire (the 3D reappears)** — a transparent section lets the fixed canvas show through again; a second ScrollTrigger blends the camera to the buy pose while a panel slides in with price, specs, finish, and add-to-cart → a floating cart drawer.
+4. **Close (dark)** — ownership assurances, a *for professionals* band, a *Join the revolution* newsletter, and the footer (an off-white back-to-top strip over dark nav columns).
+
+A localhost-only **corner-radius dev slider** tunes one universal `--radius` token across every retail box, card, and image.
 
 ## Tech stack & versions
 
@@ -147,10 +154,12 @@ app/
   opengraph-image.png / twitter-image.png
 components/
   Experience.tsx    the whole take — scene, camera rig, scroll timeline,
-                    audio system, HUD, cart, entry gate, 7 beats
-  PostTake.tsx      post-film coda — sound, presence, connectivity,
-                    assurances, newsletter, footer
-  Hud.tsx           persistent top chrome (brand, progress, cart)
+                    audio system, nav mount, cart, entry gate, the 6 film
+                    beats + the post-film acquire reveal (needs cart/camera)
+  PostTake.tsx      post-film body — editorial (sound, presence), the light
+                    retail interlude (connectivity bento, the range),
+                    assurances, professionals, newsletter, footer
+  Hud.tsx           hide-on-scroll top nav (brand, category links, cart)
   SceneGuard.tsx    WebGL detection, error boundaries, fallback poster
 public/             compressed .glb finishes + soundtrack
 ```

@@ -166,13 +166,15 @@ The single exception: the 3D renderer itself carries cinematic studio lighting (
 
 ### Light retail interlude (the one palette flip)
 
-The post-film body has a single, deliberate flip to light — the **retail interlude**: `Connectivity → FindYourSound → Assurances` render on `{colors.paper}` (#f4f4f2, a warm off-white — never stark `#fff`). This breaks the long black run between pick-color (end of the film) and add-to-cart (the acquire reveal), and lets the page read like a real product/retail site. It is the **only** light region: the 3D film, the acquire reveal, and the footer all stay `void`-black.
+The post-film body has a single, deliberate flip to light — the **retail interlude**: `Connectivity → FindYourSound` render on `{colors.paper}` (#f4f4f2, a warm off-white — never stark `#fff`). This breaks the long black run between pick-color (end of the film) and add-to-cart (the acquire reveal), and lets the page read like a real product/retail site. The interlude is the main light region; the footer also carries a single **off-white back-to-top strip** so the very bottom doesn't read as a dead-dark slab. Everything else — the 3D film, the acquire reveal, **Assurances**, the pro band, the newsletter — stays `void`-black.
 
 Rules inside the interlude:
 - Ink tokens only: `{colors.ink}` / `ink-muted` / `ink-ghost` on `paper` / `paper-deep`. No hard-coded grays.
-- **Bento is built from layout, not rounding** — varied cell sizes + `paper-deep` tiles + dark hairlines (`black/10`). Sharp corners still hold (the chrome ring is the only curve). A single dark (`void`) card may sit inside the interlude for contrast (the inverted "Find your sound" card).
-- Connectivity uses **recognizable third-party marks** (AirPlay / Bluetooth / Spotify / Cast) inline + tracked wordmarks for the rest — monochrome ink, one family. Shown under the concept's trademark disclaimer.
+- **Bento is layout-first**: varied cell sizes + `paper-deep` tiles + dark hairlines (`black/10`). Corners use the universal `{radius}` token (see Corner Radius below) — the retail body is the one place curves are allowed beyond the chrome ring. A single dark (`void`) card may sit inside for contrast (the inverted "Find your sound" card).
+- **Connectivity is a selectable bento** — a row of boxes, glyph atop + name below; selecting one (dark border) updates its explanation beneath the row. Recognizable marks (AirPlay / Bluetooth / Spotify / Cast) inline + abstract marks for Roon / UPnP / Tidal — monochrome ink, one family, under the concept's trademark disclaimer.
 - Still no gradients, no glassmorphism, no box-shadow.
+
+**Assurances** (the trust row) and the **white-bento-on-black** `Professionals` band sit BELOW the acquire/order section and are **dark** — black sections with grey `surface-raised` (Assurances) or `paper` (Professionals) tiles. They are not part of the light interlude.
 
 ## Typography
 
@@ -208,13 +210,15 @@ Rules inside the interlude:
 
 **Body copy and model never overlap.** Apple's whitespace principle: the nearest text to the 3D object is at minimum 48px away. When copy and model compete for the same viewport column, copy moves — the model does not.
 
-## Buttons and Interactive Elements
+## Buttons, Corner Radius and Interactive Elements
 
-**Zero border-radius on all buttons.** Sharp rectangles only. The speaker's chrome ring is the only curve in this design system.
+**Corner radius — one token, scoped to the retail body.** A single `{radius}` token (`--radius`, default **12px**) rounds the **retail body only**: the interlude bento boxes/cards, the acquire and newsletter cards, and every `ImagePlaceholder`/image read `rounded-[var(--radius)]`. The **3D film layer stays sharp** — the HUD, finish chips, and the dark ghost CTAs have zero radius, so the chrome ring remains the only curve in the cinematic layer. The token is tuned live on `localhost` via the `RadiusTuner` dev slider; that control never ships.
 
-**Ghost buttons only.** No filled color backgrounds on CTA elements. Buttons are transparent with a border that lightens on hover. This ensures the 3D canvas always reads as the dominant visual element.
+**Dark-layer buttons are ghost + sharp.** In the film and HUD, CTAs are transparent with a border that lightens on hover, zero radius — the 3D canvas always reads as the dominant element. The buying panel's primary action (Add to cart) is the one filled exception, white-on-void.
 
-**Finish chips** follow the same sharp-rectangle grammar but are smaller and more spaced.
+**Retail-layer buttons** (Subscribe, Compare, Start a chat) may be filled (`ink` / `paper`) and rounded to `{radius}`, matching the interlude's product-page grammar. Concept links that lead nowhere are rendered as inert buttons — never `href="#"` (jumping to the top reads worse than not working).
+
+**Finish chips** follow the sharp-rectangle grammar — small, spaced, zero radius.
 
 ## Elevation and Depth
 
@@ -228,13 +232,13 @@ Rules inside the interlude:
 
 Hairlines between elements: `rgba(255,255,255,0.08)` — barely visible, never decorative.
 
-## HUD Chrome Layer
+## HUD / Nav Chrome Layer
 
-The fixed HUD (wordmark, section index, dot-nav, progress rail) is part of the design system, not an afterthought. HUD elements:
-- Text in `{typography.label}` — 11px, uppercase, 0.12em tracking
-- Color: `{colors.white-muted}` at rest, `{colors.white}` on active section
-- No backgrounds, no borders, no blur — the HUD floats directly on the canvas
-- Dot-nav dots: 4px circles, fill on active, hairline border on inactive
+The fixed top chrome is a **hide-on-scroll nav bar** — brand left, category links centre, cart right. It slides up on scroll-down and returns on scroll-up, driven imperatively from the Lenis scroll handler (`setHidden`, no React re-render). The old scroll-progress rail and section dot-nav were removed (they read as AI-slop). Nav elements:
+- Text in `{typography.label}` — 11px, uppercase, ~0.2em tracking
+- Color: `{colors.white-muted}` at rest, `{colors.white}` on hover; flips to **ink** (`overLight`) while the bar sits over the light retail interlude
+- No backgrounds, no borders, no blur — the bar floats directly on the canvas
+- Category links are inert (concept) — buttons that do nothing, never page-jumping anchors
 
 ## Do's
 
@@ -250,11 +254,12 @@ The fixed HUD (wordmark, section index, dot-nav, progress rail) is part of the d
 
 - No glassmorphism, no blur backgrounds, no frosted glass
 - No gradient text, no gradient backgrounds, no CSS glows
-- No border-radius on buttons or cards (dots in dot-nav are the sole exception)
-- No filled-color CTA buttons (ghost only)
+- No border-radius in the **cinematic layer** (film, HUD, finish chips). Rounding is allowed only in the **retail body**, via the single `{radius}` token (see Corner Radius)
+- No filled-color CTAs in the dark film layer (ghost only); filled buttons are allowed in the retail interlude / newsletter and for the buying panel's Add to cart
 - No Italiana below 32px
 - No text overlapping the 3D model
 - No second accent color — chrome is the single accent
 - No bold (600+) in the UI layer
 - No card carousels
+- No `href="#"` placeholder links (jumping to the top reads worse than not working) — inert concept links are buttons
 - No Apple blue, no Lamborghini gold — this is neither brand
