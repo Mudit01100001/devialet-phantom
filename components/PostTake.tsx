@@ -29,12 +29,33 @@ function GhostLink({ children, className = '' }: { children: React.ReactNode; cl
   )
 }
 
+// "EDT" → opens a Google time-zone conversion into the visitor's own zone. The zone
+// is read at click time from Intl (no SSR/hydration mismatch). A real, useful link.
+function EdtLink() {
+  const toGoogle = () => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+    const place = tz.split('/').pop()?.replace(/_/g, ' ') || tz
+    const url = `https://www.google.com/search?q=${encodeURIComponent('9am EDT to ' + place)}`
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+  return (
+    <button
+      type="button"
+      onClick={toGoogle}
+      title="Convert EDT to your time zone"
+      className="cursor-pointer underline decoration-white/30 underline-offset-2 transition-colors hover:text-white-muted"
+    >
+      EDT
+    </button>
+  )
+}
+
 // ── SOUND ─────────────────────────────────────────────────────────────────
 // Crisp editorial beat. Image gets the wider column; both editorial photos share a
 // 3:2 ratio and the same grid so their columns line up section to section.
 export function Sound() {
   return (
-    <section className="relative z-20 bg-void px-6 py-14 md:px-[8vw] md:py-20">
+    <section className="relative z-20 bg-void px-6 pt-14 pb-8 md:px-[8vw] md:pt-20 md:pb-10">
       <div className="mx-auto grid max-w-6xl items-center gap-8 md:grid-cols-[0.9fr_1.1fr] md:gap-12">
         <div>
           <p className="text-[10px] uppercase tracking-[0.42em] text-white-ghost">Sound</p>
@@ -63,7 +84,7 @@ export function Sound() {
 // ── PRESENCE ──────────────────────────────────────────────────────────────
 export function Presence() {
   return (
-    <section className="relative z-20 bg-void px-6 py-14 md:px-[8vw] md:py-20">
+    <section className="relative z-20 bg-void px-6 pt-8 pb-14 md:px-[8vw] md:pt-10 md:pb-20">
       <div className="mx-auto grid max-w-6xl items-center gap-8 md:grid-cols-[1.1fr_0.9fr] md:gap-12">
         <img
           src="/post/presence-lifestyle.jpeg"
@@ -180,14 +201,14 @@ export function Connectivity() {
   const [sel, setSel] = useState(0)
   const active = SOURCES[sel]
   return (
-    <section className="relative z-20 bg-paper px-6 py-20 text-ink md:px-[8vw] md:py-24">
+    <section className="relative z-20 bg-paper px-6 pt-20 pb-10 text-ink md:px-[8vw] md:pt-24 md:pb-12">
       <div className="mx-auto max-w-6xl">
         <p className="text-[10px] uppercase tracking-[0.42em] text-ink-ghost">Connectivity</p>
         <h2 className={`${display} mt-4 text-balance text-4xl uppercase leading-[1.05] md:text-5xl`}>
           Plays from anything.
         </h2>
 
-        <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+        <div className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
           {SOURCES.map((s, i) => (
             <button
               key={s.name}
@@ -207,7 +228,7 @@ export function Connectivity() {
         </div>
 
         {/* explanation for the selected source */}
-        <div className="mt-12 text-center">
+        <div className="mt-6 text-center">
           <p className="text-sm font-medium tracking-wide text-ink">
             {active.name} · {active.blurb}
           </p>
@@ -394,9 +415,13 @@ export function Professionals() {
               One on one, before you commit. Mon to Fri, 9 to 18 CET.
             </p>
           </div>
-          <GhostLink className="mt-8 inline-flex min-h-[44px] items-center gap-2 self-start rounded-[var(--radius)] border border-ink/20 px-6 text-[11px] uppercase tracking-[0.2em] text-ink transition-colors hover:border-ink">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event('phantom:open-chat'))}
+            className="mt-8 inline-flex min-h-[44px] cursor-pointer items-center gap-2 self-start rounded-[var(--radius)] border border-ink/20 px-6 text-[11px] uppercase tracking-[0.2em] text-ink transition-colors hover:border-ink"
+          >
             Start a chat <span aria-hidden>→</span>
-          </GhostLink>
+          </button>
         </div>
       </div>
     </section>
@@ -424,7 +449,7 @@ export function Newsletter() {
     setDone(true)
   }
   return (
-    <section className="relative z-20 bg-void px-6 pb-16 md:px-[8vw] md:pb-20">
+    <section className="relative z-20 bg-void px-6 pb-8 md:px-[8vw] md:pb-10">
       <div className="mx-auto max-w-6xl">
         {/* outer rectangle — moon image slot (lighter tone) */}
         <div className="relative flex min-h-[24rem] items-center justify-center overflow-hidden rounded-[var(--radius)] bg-surface-raised px-6 py-10 md:px-14 md:py-16">
@@ -495,7 +520,9 @@ export function Newsletter() {
         <div className="mt-8 flex flex-col gap-3 border-t border-white/10 pt-8 md:flex-row md:items-center md:justify-between">
           <p className="text-[11px] uppercase tracking-[0.18em] text-white-muted">
             Contact our advisors
-            <span className="ml-3 text-white-ghost">Mon to Fri, 9am to 11.45am | 7pm to 10pm (EDT)</span>
+            <span className="ml-3 text-white-ghost">
+              Mon to Fri, 9am to 11.45am | 7pm to 10pm (<EdtLink />)
+            </span>
           </p>
           <button
             type="button"
