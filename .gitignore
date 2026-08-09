@@ -44,3 +44,7 @@ next-env.d.ts
 .claude/
 .impeccable/
 .agents/
+
+# 3D model exports — hosted on Vercel Blob (see FINISH_URL in Experience.tsx),
+# never committed to git. Keep local exports here for re-uploading only.
+/public/*.glb

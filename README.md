@@ -19,7 +19,7 @@
 
 > **Concept piece.** This is an unaffiliated design concept and portfolio demonstration. *Phantom* and *Devialet* are trademarks of Devialet; nothing here is an official product or for sale.
 
-> **The entire 3D model is original work.** Every part of the Phantom was modelled from scratch in Blender by **Mudit** — no purchased, scanned, or downloaded assets — then meshopt-compressed for real-time WebGL.
+> **The entire 3D model is original work.** Every part of the Phantom was modelled from scratch in Blender by **Mudit** — no purchased, scanned, or downloaded assets — then meshopt-compressed for real-time WebGL. **It is not licensed for download, extraction, or reuse**; the model files are served from private asset storage rather than committed to this repo.
 
 ---
 

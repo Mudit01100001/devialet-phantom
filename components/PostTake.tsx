@@ -600,6 +600,9 @@ export function SiteFooter({
           <p className="text-[10px] uppercase tracking-[0.24em] text-white-ghost">
             Real-time site in React Three Fiber + GSAP
           </p>
+          <p className="text-[10px] uppercase tracking-[0.24em] text-white-ghost">
+            Not licensed for download, extraction, or reuse
+          </p>
           {audioOn && (
             <p className="text-[10px] uppercase tracking-[0.24em] text-white-ghost">Music · {musicCredit}</p>
           )}

@@ -102,10 +102,12 @@ type FinishId = 'gold' | 'rosegold' | 'matte-black'
 
 // Real Blender material-variant exports (tweeter + logo finalised, one stand
 // each). Each GLB is ~1.2 MB; all three preload so switching is instant.
+// Hosted on Vercel Blob (not committed to the repo) so the source models
+// aren't sitting in git history on a public repo — see devialet-site/CLAUDE.md.
 const FINISH_URL: Record<FinishId, string> = {
-  gold: '/finish_gold.glb',
-  rosegold: '/finish_rosegold.glb',
-  'matte-black': '/finish_black.glb',
+  gold: 'https://fhlvakn1vsxjop30.public.blob.vercel-storage.com/4a7e2c212229a5da-duDe0BlRFx0xiMUHXx6dTTzZBcIKGm.glb',
+  rosegold: 'https://fhlvakn1vsxjop30.public.blob.vercel-storage.com/bf308b955c5f5c60-g5le3gofzliTWNq9zGSGcxsXaUWt1p.glb',
+  'matte-black': 'https://fhlvakn1vsxjop30.public.blob.vercel-storage.com/bde7b614e2d053a9-c1vt8onYy7DKh1CqyfFaxP0YTU2i6j.glb',
 }
 
 const FINISH_META: { id: FinishId; label: string; dot: string }[] = [
