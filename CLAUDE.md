@@ -40,7 +40,7 @@ npx tsc --noEmit # typecheck (run before committing)
 - **`app/globals.css`** — design tokens (`@theme`), `:focus-visible` rings, scroll-cue + eq-bar keyframes, volume-slider styling, reduced-motion block.
 - **`app/icon.svg` / `icon.png` / `favicon.ico`** — P-monogram favicons.
 - **`app/opengraph-image.png` / `twitter-image.png`** — social cards.
-- **`public/`** — `finish_gold.glb` / `finish_rosegold.glb` / `finish_black.glb` (~1.95 MB each) + `phantom-track.m4a` (full) / `phantom-track-loop.m4a` (lighter loop).
+- **`public/`** — `phantom-track.m4a` (full) / `phantom-track-loop.m4a` (lighter loop) + `post/` renders. The three finish GLBs are **not here** (see "Asset & repo hardening" below) — they're gitignored and hosted on Vercel Blob instead.
 
 ## Key systems (mostly in `Experience.tsx`; post-take layer in `PostTake.tsx`)
 - **Scroll structure (film + reveal):** the film take is **6 beats — hero → shape → power → detail → spine → finish (pick color) — and ENDS at finish**. Camera driven by ScrollTrigger over a Lenis smooth-scroll spacer (`~720vh`); copy reveal is a pure function of scroll (Z-depth + blur outside a sharp read plateau). Below the film: dark editorial (Sound/Presence) → **light retail interlude** (Connectivity/FindYourSound/Assurances on paper) → **`AcquireReveal`** (the 3D REAPPEARS — a transparent section; its ScrollTrigger scrubs `view.acquire` 0→1 so CameraRig blends the held finish framing toward `ACQUIRE_VIEW`, while the film overlay fades out; a `sticky pointer-events-none` panel keeps the buying card centred and lets drag fall through to the canvas) → dark close (Professionals/Newsletter/SiteFooter). Palette story = dark film → dark editorial → light retail → dark acquire → dark close.
@@ -51,7 +51,7 @@ npx tsc --noEmit # typecheck (run before committing)
 
 ## Conventions
 - **Per-frame state is mutated on module globals, not React state** — keep it that way; prop/state cascades during scroll cause jank.
-- **GLB pipeline:** Mudit exports uncompressed GLBs from Blender; compress each with `npx @gltf-transform/cli` (WebP textures → meshopt, ≈1.95 MB) into `public/`. The finish picker loads by filename (`FINISH_URL`), so swapping a finish is a drop-in (no code change). Never headless-write his `.blend`.
+- **GLB pipeline (updated 9 Aug 2026):** Mudit exports uncompressed GLBs from Blender; compress each with `npx @gltf-transform/cli` (WebP textures → meshopt, ≈1.95 MB); upload to the `devialet-assets` **Vercel Blob store** (`vercel blob put <file> --access public --pathname <random-hex>.glb`, project already linked); paste the resulting URL into `FINISH_URL` in `Experience.tsx`. GLBs are **never committed to git** — `public/*.glb` is gitignored, and the repo is public but the models aren't. Never headless-write his `.blend`.
 - Tailwind for layout utilities; colors via tokens. White/black opacity utilities (`bg-white/10`, `text-white/90`) are acceptable infra.
 
 ## Current state (18 Jun 2026)
@@ -65,8 +65,16 @@ npx tsc --noEmit # typecheck (run before committing)
 
 ### 🎯 Open tasks
 1. ✅ **Post-take images wired (18 Jun)** — all five renders are in `public/post/` (`sound-macro.jpeg` 3:2, `presence-lifestyle.jpeg` 3:2, `range-hero.jpeg` 21:9, `heritage.jpeg` 16:9, `newsletter-moon.png` 16:9); the `<ImagePlaceholder>` helper was removed (no slots left). The Newsletter card was recentred to the reference (wide centred panel, copy left / form right). Still optional: add LQIP/poster fallbacks and convert the 2.1 MB `newsletter-moon.png` to JPEG/WebP.
-2. ✅ **Finishes refreshed (18 Jun)** — all three GLBs re-exported by Mudit (incl. updated Rose Gold + lifted-panel Matte Black) and re-compressed (WebP → meshopt `--level high`, ≈1.95 MB) into `public/finish_{gold,rosegold,black}.glb`. Load-verified; confirm the matte-black read on the finish beat in a real browser.
+2. ✅ **Finishes refreshed (18 Jun)** — all three GLBs re-exported by Mudit (incl. updated Rose Gold + lifted-panel Matte Black) and re-compressed (WebP → meshopt `--level high`, ≈1.95 MB). ⚠️ Note: at the time this loaded from `public/finish_{gold,rosegold,black}.glb`; as of 9 Aug that path is gone — see below, any future re-export goes to Vercel Blob instead.
 3. **Tune the live-motion bits in a real browser** — the acquire camera blend + `~720vh` film spacer pacing + `200vh` acquire pin, the nav hide/show threshold, and the lighter scroll feel; adjust if needed.
+
+## Asset & repo hardening (9 Aug 2026)
+Mudit asked to lock the 3D model down from casual GitHub browsing/downloading. Repo strategy stays **public** (the README still needs to do its job for Grapes Worldwide) — the fix was getting the model bytes out of git, not hiding the whole repo:
+- **Finish GLBs moved to Vercel Blob** — a `devialet-assets` store (public-read, linked to the project). `FINISH_URL` in `Experience.tsx` now points at opaque `https://fhlvakn1vsxjop30.public.blob.vercel-storage.com/<random-hex>-<random>.glb` URLs instead of `/finish_*.glb`. Local exports renamed to match and gitignored (`public/*.glb`) so nothing descriptive lingers on disk either.
+- **Git history scrubbed** of the three old GLB blobs across every ref, not just deleted at HEAD (`git filter-repo --path ... --invert-paths`, then force-pushed). The three now-redundant, already-merged feature branches (`fix-batch-spacing-audio-finishes`, `post-film-restructure`, `refresh-finishes-and-post-images`) were deleted on `origin` and locally — `main` is the only branch left.
+- **Explicit no-download notice** added next to the existing model credit, in the footer (`SiteFooter` in `PostTake.tsx`) and `README.md`: "Not licensed for download, extraction, or reuse."
+- **Verified end-to-end on the live production site**: clicking a finish button updates shared state (`aria-pressed` stays in sync across both the film picker and the AcquireReveal panel) → the matching GLB is fetched from its Blob URL → the mesh actually swaps on screen (confirmed Matte Black rendering at the hero after selecting it). Zero console errors; the old `/finish_gold.glb`-style paths now 404.
+- **Said plainly — this raises the floor, it doesn't make the model undownloadable.** A network-sniffing browser extension still sees the `.glb` cross the wire regardless of filename; the point was getting it out of a public git repo at a guessable name with unlimited edit history behind it, not defeating dedicated capture.
 
 ## More context
 - **`README.md`** — public project overview (renders on the repo page).
